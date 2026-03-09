@@ -4,3 +4,6 @@ data/
 keys/
 __pycache__/
 *.pyc
+*..venv/
+venv/
+.zip

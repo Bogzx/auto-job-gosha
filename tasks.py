@@ -18,6 +18,20 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+async def _dm_user(bot: JobBot, discord_id: int, embed: discord.Embed) -> None:
+    """Send an embed to a user via DM. Silently skip if DMs are closed."""
+    try:
+        user = bot.get_user(discord_id)
+        if user is None:
+            user = await bot.fetch_user(discord_id)
+        dm = await user.create_dm()
+        await dm.send(embed=embed)
+    except discord.Forbidden:
+        log.warning("Cannot DM user %d – DMs are closed", discord_id)
+    except discord.HTTPException as exc:
+        log.error("Failed to DM user %d: %s", discord_id, exc)
+
+
 async def run_scrape_cycle(
     bot: JobBot,
     tunnel_manager: SSHTunnelManager,
@@ -27,49 +41,44 @@ async def run_scrape_cycle(
 
     1. Collect distinct (keyword, location, max_age_days) combos.
     2. Scrape each combo once.
-    3. Deduplicate against SeenJob.
-    4. Send Discord embeds tagging the relevant users.
+    3. Deduplicate against SeenJob per user.
+    4. DM each user their new jobs privately.
+    5. Post a summary to the alert channel (if configured).
     """
     log.info("=== Scrape cycle started ===")
 
     # ── 1. Gather unique search combos & map to subscribers ─────
     async with get_session() as session:
-        result = await session.execute(
-            select(Subscription).options()  # subscriptions already eager-load user
-        )
+        result = await session.execute(select(Subscription))
         all_subs = result.scalars().all()
 
     if not all_subs:
         log.info("No subscriptions – nothing to scrape.")
         return
 
-    # combo → list of discord_user_ids
-    combo_map: dict[tuple[str, str, int], list[int]] = {}
-    # subscription also carries user.discord_user_id via relationship
-    sub_user_discord_ids: dict[int, int] = {}  # sub.user_id → discord id
+    # Build combo → list of (internal_user_id, discord_user_id)
+    combo_map: dict[tuple[str, str, int], list[tuple[int, int]]] = {}
 
     async with get_session() as session:
         for sub in all_subs:
             user = await session.get(User, sub.user_id)
             if user is None:
                 continue
-            sub_user_discord_ids[sub.user_id] = user.discord_user_id
             key = (sub.keyword.lower(), sub.location.lower(), sub.max_age_days)
-            combo_map.setdefault(key, []).append(user.discord_user_id)
+            combo_map.setdefault(key, []).append((user.id, user.discord_user_id))
 
     # ── 2. Scrape each combo once ──────────────────────────────
-    channel: discord.abc.Messageable | None = None
-    if alert_channel_id:
-        channel = bot.get_channel(alert_channel_id)  # type: ignore[assignment]
+    total_new = 0
 
-    for (keyword, location, max_age_days), discord_ids in combo_map.items():
+    for (keyword, location, max_age_days), user_pairs in combo_map.items():
         df = await search_jobs(tunnel_manager, keyword, location, max_age_days)
         if df.empty:
             continue
 
-        unique_discord_ids = list(set(discord_ids))
+        # Deduplicate user list (same user might have overlapping subs)
+        unique_users = list({uid: (uid, did) for uid, did in user_pairs}.values())
 
-        # ── 3. Filter out already-seen jobs per user ───────────
+        # ── 3. Filter & notify per user ────────────────────────
         for _, row in df.iterrows():
             job_url = str(row.get("job_url") or row.get("job_url_direct") or row.get("link") or "")
             if not job_url or job_url == "nan":
@@ -78,40 +87,13 @@ async def run_scrape_cycle(
             title = str(row.get("title", "Unknown Title"))
             company = str(row.get("company", "Unknown"))
             job_location = str(row.get("location", location))
+            description = str(row.get("description") or "")
+            # Truncate description for embed
+            if description in ("", "nan", "None"):
+                description = ""
+            elif len(description) > 200:
+                description = description[:200] + "…"
 
-            notified_users: list[int] = []
-
-            async with get_session() as session:
-                for uid in unique_discord_ids:
-                    # Resolve internal user id
-                    u_result = await session.execute(
-                        select(User).where(User.discord_user_id == uid)
-                    )
-                    user = u_result.scalar_one_or_none()
-                    if user is None:
-                        continue
-
-                    # Check if already seen
-                    seen_result = await session.execute(
-                        select(SeenJob).where(
-                            SeenJob.user_id == user.id,
-                            SeenJob.job_url == job_url,
-                        )
-                    )
-                    if seen_result.scalar_one_or_none() is not None:
-                        continue
-
-                    # Mark as seen
-                    session.add(SeenJob(user_id=user.id, job_url=job_url))
-                    notified_users.append(uid)
-
-                await session.commit()
-
-            if not notified_users:
-                continue
-
-            # ── 4. Send styled embed ───────────────────────────
-            mentions = " ".join(f"<@{uid}>" for uid in notified_users)
             embed = discord.Embed(
                 title=title,
                 url=job_url,
@@ -119,21 +101,37 @@ async def run_scrape_cycle(
             )
             embed.add_field(name="Company", value=company, inline=True)
             embed.add_field(name="Location", value=job_location, inline=True)
-            embed.add_field(name="Search", value=f"{keyword}", inline=False)
+            embed.add_field(name="Search", value=keyword, inline=True)
+            if description and description != "nan":
+                embed.add_field(name="Description", value=description, inline=False)
 
-            target = channel
-            if target is None:
-                # Fall back: DM the first user (useful during dev)
-                for uid in notified_users:
-                    dm_user = bot.get_user(uid)
-                    if dm_user:
-                        target = await dm_user.create_dm()
-                        break
+            async with get_session() as session:
+                for internal_uid, discord_uid in unique_users:
+                    # Check if already seen
+                    seen_result = await session.execute(
+                        select(SeenJob).where(
+                            SeenJob.user_id == internal_uid,
+                            SeenJob.job_url == job_url,
+                        )
+                    )
+                    if seen_result.scalar_one_or_none() is not None:
+                        continue
 
-            if target is not None:
-                try:
-                    await target.send(content=mentions, embed=embed)
-                except discord.HTTPException as exc:
-                    log.error("Failed to send alert: %s", exc)
+                    # Mark as seen
+                    session.add(SeenJob(user_id=internal_uid, job_url=job_url))
+                    await session.commit()
 
-    log.info("=== Scrape cycle finished ===")
+                    # DM the user
+                    await _dm_user(bot, discord_uid, embed)
+                    total_new += 1
+
+    # ── 5. Optional: post summary to alert channel ─────────────
+    if alert_channel_id and total_new > 0:
+        channel = bot.get_channel(alert_channel_id)
+        if channel is not None:
+            try:
+                await channel.send(f"📬 Scrape complete — sent **{total_new}** new job alerts via DM.")  # type: ignore[union-attr]
+            except discord.HTTPException:
+                pass
+
+    log.info("=== Scrape cycle finished — %d new jobs sent ===", total_new)
