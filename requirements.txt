@@ -1,0 +1,8 @@
+discord.py>=2.3,<3
+python-jobspy>=1.1
+sqlalchemy>=2.0,<3
+aiosqlite>=0.19
+apscheduler>=3.10,<4
+pandas>=2.0
+pysocks>=1.7
+python-dotenv>=1.0

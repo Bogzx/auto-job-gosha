@@ -1,0 +1,14 @@
+services:
+  job-bot:
+    build: .
+    container_name: job-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persist the SQLite database across rebuilds
+      - ./data:/app/data
+      # Mount SSH keys (read-only) – place all private keys in ./keys/
+      - ./keys:/root/.ssh:ro
+    # The container needs a real network stack for SSH tunnels
+    network_mode: host

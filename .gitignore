@@ -1,1 +1,6 @@
 *.env
+.env
+data/
+keys/
+__pycache__/
+*.pyc
