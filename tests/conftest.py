@@ -1,0 +1,88 @@
+"""Shared fixtures for the GOSHA test suite."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime, timezone
+
+import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from gosha.models import Base, Job, Subscription, User, UserJob
+
+# Use in-memory SQLite for all tests — fast and isolated.
+TEST_DB_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create a single event loop for the entire test session."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest_asyncio.fixture
+async def engine():
+    """Create a fresh in-memory database engine per test."""
+    eng = create_async_engine(TEST_DB_URL, echo=False)
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield eng
+    async with eng.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await eng.dispose()
+
+
+@pytest_asyncio.fixture
+async def session(engine):
+    """Provide an async session bound to the test engine."""
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as sess:
+        yield sess
+
+
+@pytest_asyncio.fixture
+async def sample_user(session: AsyncSession) -> User:
+    """Create a sample user."""
+    user = User(discord_user_id=123456789)
+    session.add(user)
+    await session.commit()
+    return user
+
+
+@pytest_asyncio.fixture
+async def sample_job(session: AsyncSession) -> Job:
+    """Create a sample job."""
+    job = Job(
+        url="https://example.com/job/1",
+        title="Junior Software Engineer",
+        company="TechCorp",
+        location="Cluj-Napoca, Romania",
+        description="Build cool stuff with Python and React.",
+        source="indeed",
+        salary_min=40000,
+        salary_max=55000,
+        salary_currency="EUR",
+    )
+    session.add(job)
+    await session.commit()
+    return job
+
+
+@pytest_asyncio.fixture
+async def sample_subscription(session: AsyncSession, sample_user: User) -> Subscription:
+    """Create a sample subscription."""
+    sub = Subscription(
+        user_id=sample_user.id,
+        max_age_days=7,
+    )
+    sub.keywords = ["software engineer"]
+    sub.locations = ["Cluj"]
+    sub.excluded_keywords = []
+    sub.company_blacklist = []
+    sub.experience_levels = ["any"]
+    session.add(sub)
+    await session.commit()
+    return sub

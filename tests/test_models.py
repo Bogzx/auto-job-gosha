@@ -1,0 +1,251 @@
+"""Tests for ORM models — Job, User, Subscription, UserJob."""
+
+from __future__ import annotations
+
+import pytest
+import pytest_asyncio
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from gosha.models import Job, Subscription, User, UserJob
+
+
+# ── Job model ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_job(session: AsyncSession):
+    job = Job(
+        url="https://indeed.com/job/123",
+        title="Backend Developer",
+        company="Acme",
+        location="Bucharest, Romania",
+        source="indeed",
+    )
+    session.add(job)
+    await session.commit()
+
+    result = await session.execute(select(Job).where(Job.url == "https://indeed.com/job/123"))
+    fetched = result.scalar_one()
+    assert fetched.title == "Backend Developer"
+    assert fetched.company == "Acme"
+    assert fetched.is_active is True
+    assert fetched.first_seen_at is not None
+    assert fetched.last_seen_at is not None
+
+
+@pytest.mark.asyncio
+async def test_job_url_unique(session: AsyncSession):
+    job1 = Job(url="https://example.com/dup", title="Dev", company="X", source="indeed")
+    session.add(job1)
+    await session.commit()
+
+    job2 = Job(url="https://example.com/dup", title="Dev 2", company="Y", source="linkedin")
+    session.add(job2)
+    with pytest.raises(IntegrityError):
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_job_optional_salary(session: AsyncSession):
+    job = Job(
+        url="https://example.com/no-salary",
+        title="Intern",
+        company="StartupCo",
+        source="glassdoor",
+    )
+    session.add(job)
+    await session.commit()
+
+    result = await session.execute(select(Job).where(Job.id == job.id))
+    fetched = result.scalar_one()
+    assert fetched.salary_min is None
+    assert fetched.salary_max is None
+    assert fetched.salary_currency is None
+
+
+@pytest.mark.asyncio
+async def test_job_with_salary(session: AsyncSession, sample_job: Job):
+    assert sample_job.salary_min == 40000
+    assert sample_job.salary_max == 55000
+    assert sample_job.salary_currency == "EUR"
+
+
+# ── User model ────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_user(session: AsyncSession):
+    user = User(discord_user_id=999888777)
+    session.add(user)
+    await session.commit()
+
+    result = await session.execute(
+        select(User).where(User.discord_user_id == 999888777)
+    )
+    fetched = result.scalar_one()
+    assert fetched.id is not None
+    assert fetched.discord_user_id == 999888777
+
+
+@pytest.mark.asyncio
+async def test_user_discord_id_unique(session: AsyncSession):
+    u1 = User(discord_user_id=111)
+    session.add(u1)
+    await session.commit()
+
+    u2 = User(discord_user_id=111)
+    session.add(u2)
+    with pytest.raises(IntegrityError):
+        await session.commit()
+
+
+# ── Subscription model ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_subscription_json_lists(session: AsyncSession, sample_user: User):
+    sub = Subscription(user_id=sample_user.id, max_age_days=14)
+    sub.keywords = ["data scientist", "ml engineer"]
+    sub.locations = ["Dublin", "London"]
+    sub.excluded_keywords = ["sales"]
+    sub.company_blacklist = ["BadCorp"]
+    sub.experience_levels = ["junior", "mid"]
+    sub.boards = ["indeed", "linkedin"]
+    session.add(sub)
+    await session.commit()
+
+    result = await session.execute(select(Subscription).where(Subscription.id == sub.id))
+    fetched = result.scalar_one()
+    assert fetched.keywords == ["data scientist", "ml engineer"]
+    assert fetched.locations == ["Dublin", "London"]
+    assert fetched.excluded_keywords == ["sales"]
+    assert fetched.company_blacklist == ["BadCorp"]
+    assert fetched.experience_levels == ["junior", "mid"]
+    assert fetched.boards == ["indeed", "linkedin"]
+    assert fetched.max_age_days == 14
+
+
+@pytest.mark.asyncio
+async def test_subscription_defaults(session: AsyncSession, sample_user: User):
+    sub = Subscription(user_id=sample_user.id)
+    sub.keywords = ["test"]
+    sub.locations = ["anywhere"]
+    session.add(sub)
+    await session.commit()
+
+    result = await session.execute(select(Subscription).where(Subscription.id == sub.id))
+    fetched = result.scalar_one()
+    assert fetched.max_age_days == 7
+    assert fetched.is_active is True
+    assert fetched.remote_ok is False
+    assert fetched.salary_min is None
+
+
+@pytest.mark.asyncio
+async def test_subscription_pause_resume(session: AsyncSession, sample_subscription: Subscription):
+    assert sample_subscription.is_active is True
+
+    sample_subscription.is_active = False
+    await session.commit()
+
+    result = await session.execute(
+        select(Subscription).where(Subscription.id == sample_subscription.id)
+    )
+    fetched = result.scalar_one()
+    assert fetched.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_subscription_user_cascade_delete(session: AsyncSession):
+    user = User(discord_user_id=777666555)
+    session.add(user)
+    await session.flush()
+
+    sub = Subscription(user_id=user.id)
+    sub.keywords = ["test"]
+    sub.locations = ["test"]
+    session.add(sub)
+    await session.commit()
+
+    # Delete user — subscription should cascade
+    await session.delete(user)
+    await session.commit()
+
+    result = await session.execute(select(Subscription))
+    assert result.scalars().all() == []
+
+
+# ── UserJob model ─────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_user_job(session: AsyncSession, sample_user: User, sample_job: Job):
+    uj = UserJob(user_id=sample_user.id, job_id=sample_job.id, relevance_score=0.85)
+    session.add(uj)
+    await session.commit()
+
+    result = await session.execute(
+        select(UserJob).where(
+            UserJob.user_id == sample_user.id,
+            UserJob.job_id == sample_job.id,
+        )
+    )
+    fetched = result.scalar_one()
+    assert fetched.relevance_score == 0.85
+    assert fetched.feedback is None
+    assert fetched.delivered_at is not None
+
+
+@pytest.mark.asyncio
+async def test_user_job_unique_constraint(
+    session: AsyncSession, sample_user: User, sample_job: Job
+):
+    uj1 = UserJob(user_id=sample_user.id, job_id=sample_job.id)
+    session.add(uj1)
+    await session.commit()
+
+    uj2 = UserJob(user_id=sample_user.id, job_id=sample_job.id)
+    session.add(uj2)
+    with pytest.raises(IntegrityError):
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_user_job_feedback(session: AsyncSession, sample_user: User, sample_job: Job):
+    from datetime import datetime, timezone
+
+    uj = UserJob(user_id=sample_user.id, job_id=sample_job.id)
+    session.add(uj)
+    await session.commit()
+
+    # Simulate user giving feedback
+    uj.feedback = "interested"
+    uj.feedback_at = datetime.now(timezone.utc)
+    await session.commit()
+
+    result = await session.execute(select(UserJob).where(UserJob.id == uj.id))
+    fetched = result.scalar_one()
+    assert fetched.feedback == "interested"
+    assert fetched.feedback_at is not None
+
+
+@pytest.mark.asyncio
+async def test_user_job_different_users_same_job(session: AsyncSession, sample_job: Job):
+    """Same job can be delivered to different users."""
+    u1 = User(discord_user_id=111222333)
+    u2 = User(discord_user_id=444555666)
+    session.add_all([u1, u2])
+    await session.flush()
+
+    uj1 = UserJob(user_id=u1.id, job_id=sample_job.id)
+    uj2 = UserJob(user_id=u2.id, job_id=sample_job.id)
+    session.add_all([uj1, uj2])
+    await session.commit()
+
+    result = await session.execute(
+        select(UserJob).where(UserJob.job_id == sample_job.id)
+    )
+    deliveries = result.scalars().all()
+    assert len(deliveries) == 2

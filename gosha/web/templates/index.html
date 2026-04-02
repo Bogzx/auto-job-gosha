@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOSHA - Job Matching Engine</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e4e4e7; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; padding: 2rem; text-align: center; }
+        h1 { font-size: 2.5rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { color: #a1a1aa; font-size: 1.1rem; margin-bottom: 2rem; }
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin: 2rem 0; text-align: left; }
+        .feature { background: #1a1b23; border: 1px solid #27272a; border-radius: 12px; padding: 1.5rem; }
+        .feature h3 { color: #8b5cf6; margin-bottom: 0.5rem; }
+        .feature p { color: #a1a1aa; font-size: 0.9rem; }
+        .btn { display: inline-block; padding: 0.75rem 2rem; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1rem; transition: all 0.2s; }
+        .btn-primary { background: #5865F2; color: white; }
+        .btn-primary:hover { background: #4752c4; }
+        .user-info { margin-bottom: 2rem; }
+        .user-info a { margin: 0 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GOSHA</h1>
+        <p class="subtitle">Your personal job-matching engine with semantic search, learning feedback, and multi-channel delivery.</p>
+
+        {% if user %}
+        <div class="user-info">
+            <p>Logged in as <strong>{{ user.username }}</strong></p>
+            <a href="/dashboard" class="btn btn-primary">Dashboard</a>
+            <a href="/logout" class="btn" style="color: #a1a1aa;">Logout</a>
+        </div>
+        {% else %}
+        <a href="/login" class="btn btn-primary">Login with Discord</a>
+        {% endif %}
+
+        <div class="features">
+            <div class="feature">
+                <h3>Smart Matching</h3>
+                <p>Semantic embeddings understand what you want, not just keyword matches.</p>
+            </div>
+            <div class="feature">
+                <h3>Learns Your Taste</h3>
+                <p>Feedback on delivered jobs refines your profile over time.</p>
+            </div>
+            <div class="feature">
+                <h3>Multi-Channel</h3>
+                <p>Get notified via Discord DM, email digest, or webhook.</p>
+            </div>
+            <div class="feature">
+                <h3>Rich Filters</h3>
+                <p>Blacklist companies, set salary floors, filter by experience level.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

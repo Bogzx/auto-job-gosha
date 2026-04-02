@@ -1,3 +1,4 @@
+# Core
 discord.py>=2.3,<3
 python-jobspy>=1.1
 sqlalchemy>=2.0,<3
@@ -6,3 +7,21 @@ apscheduler>=3.10,<4
 pandas>=2.0
 pysocks>=1.7
 python-dotenv>=1.0
+numpy>=1.24
+
+# Semantic matching (optional — falls back to regex if missing)
+sentence-transformers>=3.0
+
+# Web dashboard
+fastapi>=0.100
+uvicorn>=0.20
+jinja2>=3.1
+python-multipart>=0.0.6
+httpx>=0.24
+itsdangerous>=2.1
+
+# Email delivery (optional)
+# aiosmtplib>=2.0
+
+# Webhook delivery (optional)
+# aiohttp>=3.9

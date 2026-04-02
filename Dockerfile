@@ -15,4 +15,6 @@ COPY . .
 # Ensure the data directory exists for the SQLite database
 RUN mkdir -p /app/data
 
+# Run the bot (main.py shim delegates to gosha.main)
+# Override CMD to run just the web: ["uvicorn", "gosha.web.app:app", "--host", "0.0.0.0", "--port", "8080"]
 CMD ["python", "main.py"]
