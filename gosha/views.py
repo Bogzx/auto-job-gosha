@@ -268,8 +268,8 @@ def build_job_embed_with_buttons(
 
     if job.description:
         desc = (
-            job.description[:200] + "..."
-            if len(job.description) > 200
+            job.description[:300] + "..."
+            if len(job.description) > 300
             else job.description
         )
         embed.add_field(name="Description", value=desc, inline=False)
@@ -278,7 +278,7 @@ def build_job_embed_with_buttons(
     footer = f"Source: {job.source} | Score: {score_str} | Job #{job.id}"
     if match_info:
         footer += f" | Matched: {match_info}"
-    embed.set_footer(text=footer)
+    embed.set_footer(text=footer[:2048])
 
     view = JobFeedbackView(user_job_id, job_url=job.url, job_id=job.id)
     return embed, view

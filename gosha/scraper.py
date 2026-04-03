@@ -69,6 +69,7 @@ async def _scrape_single(
                         results_wanted=RESULTS_PER_TERM,
                         hours_old=max_age_days * 24,
                         proxy=proxy,
+                        linkedin_fetch_description=True,
                     ),
                 )
                 frames.append(df_main)

@@ -7,5 +7,3 @@ __pycache__/
 .venv/
 venv/
 .zip
-caddy_data/
-caddy_config/

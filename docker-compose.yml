@@ -11,41 +11,14 @@ services:
     # Host networking required for SSH tunnel SOCKS5 ports
     network_mode: host
 
-  # ── Web dashboard (FastAPI) ────────────────────────────────
-  web:
+  # ── Admin dashboard (localhost only) ───────────────────────
+  admin:
     build: .
-    container_name: gosha-web
+    container_name: gosha-admin
     restart: unless-stopped
     env_file: .env
     volumes:
       - ./data:/app/data
-    command: ["uvicorn", "gosha.web.app:app", "--host", "0.0.0.0", "--port", "8080"]
-    expose:
-      - "8080"
-    networks:
-      - web
-
-  # ── Caddy reverse proxy (automatic HTTPS) ──────────────────
-  caddy:
-    image: caddy:2
-    container_name: gosha-caddy
-    restart: unless-stopped
-    env_file: .env
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - web
-    networks:
-      - web
-
-networks:
-  web:
-
-volumes:
-  caddy_data:
-  caddy_config:
+    command: ["uvicorn", "gosha.web.app:app", "--host", "127.0.0.1", "--port", "8080"]
+    # Bind to host localhost only — access via SSH tunnel
+    network_mode: host

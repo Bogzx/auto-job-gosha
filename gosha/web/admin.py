@@ -1,62 +1,27 @@
-"""Admin dashboard — secured by ADMIN_DISCORD_IDS.
+"""Admin dashboard — localhost only, no auth required.
 
-Only Discord users whose ID appears in the ADMIN_DISCORD_IDS env var
-can access any /admin/ route. All others get a 403.
+Security is handled at the network level: the web service binds to
+127.0.0.1 and is only accessible via SSH tunnel or direct server access.
 """
 
 from __future__ import annotations
 
 import logging
-import os
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import func, select
 
 from gosha.database import get_session
 from gosha.events import Event
 from gosha.models import Job, Subscription, User, UserJob, TIER_LIMITS
-from gosha.web.auth import SESSION_SECRET_DEFAULT, SessionManager
 
 log = logging.getLogger(__name__)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-
-# ---------------------------------------------------------------------------
-# Admin auth
-# ---------------------------------------------------------------------------
-
-_admin_ids_raw = os.getenv("ADMIN_DISCORD_IDS", "")
-ADMIN_DISCORD_IDS: set[int] = set()
-for _id in _admin_ids_raw.split(","):
-    _id = _id.strip()
-    if _id.isdigit():
-        ADMIN_DISCORD_IDS.add(int(_id))
-
-_session_mgr = SessionManager(
-    secret_key=os.getenv("SESSION_SECRET", SESSION_SECRET_DEFAULT),
-)
-
-
-def _get_admin_session(request: Request) -> dict:
-    """Validate session and check admin status. Raises 403 if not admin."""
-    session_data = _session_mgr.get_session(request.cookies.get("session", ""))
-    if not session_data:
-        raise HTTPException(status_code=401, detail="Not authenticated. Login at /login first.")
-    discord_id = session_data.get("discord_id")
-    if discord_id not in ADMIN_DISCORD_IDS:
-        raise HTTPException(status_code=403, detail="Access denied. You are not an admin.")
-    return session_data
-
-
-# ---------------------------------------------------------------------------
-# Router
-# ---------------------------------------------------------------------------
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -68,9 +33,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/", response_class=HTMLResponse)
 async def admin_dashboard(request: Request):
-    session_data = _get_admin_session(request)
     return templates.TemplateResponse(request, "admin/dashboard.html", {
-        "user": session_data,
         "tiers": list(TIER_LIMITS.keys()),
     })
 
@@ -82,8 +45,6 @@ async def admin_dashboard(request: Request):
 
 @router.get("/api/stats")
 async def admin_stats(request: Request):
-    _get_admin_session(request)
-
     async with get_session() as session:
         total_users = (await session.execute(select(func.count(User.id)))).scalar() or 0
         total_jobs = (await session.execute(select(func.count(Job.id)))).scalar() or 0
@@ -100,7 +61,6 @@ async def admin_stats(request: Request):
         )).scalar() or 0
         total_events = (await session.execute(select(func.count(Event.id)))).scalar() or 0
 
-        # Tier breakdown
         tier_counts = (await session.execute(
             select(User.tier, func.count(User.id)).group_by(User.tier)
         )).all()
@@ -130,8 +90,6 @@ async def admin_users(
     per_page: int = Query(50, ge=1, le=200),
     search: str = Query(""),
 ):
-    _get_admin_session(request)
-
     async with get_session() as session:
         base = select(User)
         count_base = select(func.count(User.id))
@@ -173,13 +131,7 @@ async def admin_users(
 
 
 @router.post("/api/users/{user_id}/tier")
-async def admin_set_tier(
-    request: Request,
-    user_id: int,
-    tier: str = Query(...),
-):
-    _get_admin_session(request)
-
+async def admin_set_tier(request: Request, user_id: int, tier: str = Query(...)):
     if tier not in TIER_LIMITS:
         raise HTTPException(status_code=400, detail=f"Invalid tier: {tier}")
 
@@ -198,8 +150,6 @@ async def admin_set_tier(
 
 @router.delete("/api/users/{user_id}")
 async def admin_delete_user(request: Request, user_id: int):
-    _get_admin_session(request)
-
     async with get_session() as session:
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
@@ -224,8 +174,6 @@ async def admin_subscriptions(
     per_page: int = Query(50, ge=1, le=200),
     user_id: int | None = Query(None),
 ):
-    _get_admin_session(request)
-
     async with get_session() as session:
         base = select(Subscription, User).join(User)
         count_base = select(func.count(Subscription.id))
@@ -264,8 +212,6 @@ async def admin_subscriptions(
 
 @router.post("/api/subscriptions/{sub_id}/toggle")
 async def admin_toggle_subscription(request: Request, sub_id: int):
-    _get_admin_session(request)
-
     async with get_session() as session:
         result = await session.execute(select(Subscription).where(Subscription.id == sub_id))
         sub = result.scalar_one_or_none()
@@ -281,8 +227,6 @@ async def admin_toggle_subscription(request: Request, sub_id: int):
 
 @router.delete("/api/subscriptions/{sub_id}")
 async def admin_delete_subscription(request: Request, sub_id: int):
-    _get_admin_session(request)
-
     async with get_session() as session:
         result = await session.execute(select(Subscription).where(Subscription.id == sub_id))
         sub = result.scalar_one_or_none()
@@ -308,8 +252,6 @@ async def admin_jobs(
     search: str = Query(""),
     source: str = Query(""),
 ):
-    _get_admin_session(request)
-
     async with get_session() as session:
         base = select(Job)
         count_base = select(func.count(Job.id))
@@ -357,8 +299,6 @@ async def admin_jobs(
 
 @router.delete("/api/jobs/{job_id}")
 async def admin_delete_job(request: Request, job_id: int):
-    _get_admin_session(request)
-
     async with get_session() as session:
         result = await session.execute(select(Job).where(Job.id == job_id))
         job = result.scalar_one_or_none()
@@ -383,8 +323,6 @@ async def admin_events(
     per_page: int = Query(50, ge=1, le=200),
     event_type: str = Query(""),
 ):
-    _get_admin_session(request)
-
     async with get_session() as session:
         base = select(Event)
         count_base = select(func.count(Event.id))

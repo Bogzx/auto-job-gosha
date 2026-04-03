@@ -94,7 +94,7 @@ class SubscriptionCog(commands.Cog):
     # ── keyword autocomplete ────────────────────────────────────
 
     _KEYWORD_SUGGESTIONS = [
-        ("computer science internship — 20 intern/junior roles", "computer science internship"),
+        ("computer science internship — 19 intern/junior roles", "computer science internship"),
         ("computer science — 18 general tech roles", "computer science"),
         ("cs entry level — 11 junior/graduate/trainee roles", "cs entry level"),
         ("tech internship — 9 tech + product + UX intern roles", "tech internship"),
@@ -183,6 +183,20 @@ class SubscriptionCog(commands.Cog):
                 )
                 return
 
+            if max_age_days < 1 or max_age_days > 90:
+                await interaction.response.send_message(
+                    "Max age must be between 1 and 90 days.",
+                    ephemeral=True,
+                )
+                return
+
+            if salary_min is not None and salary_min < 0:
+                await interaction.response.send_message(
+                    "Salary minimum can't be negative.",
+                    ephemeral=True,
+                )
+                return
+
             async with get_session() as session:
                 user = await self._get_or_create_user(session, interaction.user.id)
                 limits = user.limits
@@ -267,7 +281,7 @@ class SubscriptionCog(commands.Cog):
                     title=f"Subscribed! #{sub.id}",
                     description=(
                         f"**Keywords:** {kw_display}\n"
-                        f"**Location:** {loc_display}\n"
+                        f"**Location:** {loc_display} + remote jobs\n"
                         f"**Experience:** {experience}\n"
                         f"**Max age:** {max_age_days} days"
                         f"{expansion_note}"
@@ -527,6 +541,8 @@ class SubscriptionCog(commands.Cog):
                 exp = s.experience_levels
                 if exp and exp != ["any"]:
                     extras.append(f"exp: {', '.join(exp)}")
+                if s.remote_ok:
+                    extras.append("+ remote")
                 if extras:
                     line += f"\n  {' | '.join(extras)}"
                 lines.append(line)
@@ -824,17 +840,20 @@ class SubscriptionCog(commands.Cog):
                 description=(
                     f"Created subscription **#{sub.id}**:\n\n"
                     f"**Searching for:** CS internships & junior roles\n"
-                    f"**Location:** {_search_loc}\n"
+                    f"**Location:** {_search_loc} + remote jobs\n"
                     f"**Experience:** Intern + Junior\n"
                     f"**Looking back:** 14 days\n\n"
-                    f"This searches **20 job titles** automatically across "
-                    f"Indeed, LinkedIn, and Glassdoor."
+                    f"This searches **19 job titles** automatically across "
+                    f"Indeed, LinkedIn, and Glassdoor.\n\n"
+                    f"**Next steps:**\n"
+                    f"- Run `/scrape_now` to get your first jobs immediately\n"
+                    f"- Upload your CV with `/upload_cv` to enable AI cover letters\n"
+                    f"- Use `/subscribe` to add more searches (up to 5)"
                 ),
                 color=discord.Color.green(),
             )
             embed.set_footer(
-                text=f"Jobs are checked every {interval} min. "
-                f"Use /scrape_now to get results right now!"
+                text=f"Jobs arrive via DM every {interval} min. Make sure your DMs are open!"
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as exc:
@@ -935,7 +954,7 @@ class SubscriptionCog(commands.Cog):
             name="/subscribe keyword location [options]",
             value=(
                 "Create a custom subscription. Smart keywords:\n"
-                "`computer science internship` — 20 intern/junior roles\n"
+                "`computer science internship` — 19 intern/junior roles\n"
                 "`computer science` — 18 general tech roles\n"
                 "`cs entry level` — 11 junior/graduate roles\n"
                 "`data science` — 8 data/ML/AI roles\n"
@@ -980,7 +999,7 @@ class SubscriptionCog(commands.Cog):
         )
         embed.add_field(
             name="/upload_cv  &  /cover_letter job_id",
-            value="Upload your CV once, then generate AI cover letters for any job.",
+            value="Upload your CV once, then generate AI cover letters for any job.\nUse `/my_cv` to preview and `/delete_cv` to remove.",
             inline=True,
         )
         embed.add_field(
@@ -1502,8 +1521,7 @@ class SubscriptionCog(commands.Cog):
             content, was_cached = await generate_cover_letter(user.id, job_id)
             if not content:
                 await interaction.followup.send(
-                    "Cover letter generation failed. Make sure your CV is uploaded (`/upload_cv`) "
-                    "and try again later.",
+                    "Cover letter generation failed (AI service error). Please try again in a few minutes.",
                     ephemeral=True,
                 )
                 return

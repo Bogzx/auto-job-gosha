@@ -327,10 +327,10 @@ class Application(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     job_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("jobs.id"), nullable=False
+        Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
     )
     status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="applied"
@@ -343,8 +343,8 @@ class Application(Base):
         DateTime(timezone=True), default=_utcnow
     )
 
-    user: Mapped[User] = relationship()
-    job: Mapped[Job] = relationship()
+    user: Mapped[User] = relationship(passive_deletes=True)
+    job: Mapped[Job] = relationship(passive_deletes=True)
 
     __table_args__ = (
         UniqueConstraint("user_id", "job_id", name="uq_user_application"),
@@ -366,18 +366,18 @@ class CoverLetter(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     job_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("jobs.id"), nullable=False
+        Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
     )
 
-    user: Mapped[User] = relationship()
-    job: Mapped[Job] = relationship()
+    user: Mapped[User] = relationship(passive_deletes=True)
+    job: Mapped[Job] = relationship(passive_deletes=True)
 
     def __repr__(self) -> str:
         return f"<CoverLetter user={self.user_id} job={self.job_id}>"

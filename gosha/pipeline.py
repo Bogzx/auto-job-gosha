@@ -453,8 +453,8 @@ async def _deliver_new(bot: JobBot, since: datetime) -> int:
         # Build match reason from subscription keywords
         match_info = None
         if sub:
-            kw_str = ", ".join(sub.keywords[:3])
-            loc_str = ", ".join(sub.locations[:2])
+            kw_str = ", ".join(sub.keywords[:3])[:80]
+            loc_str = ", ".join(sub.locations[:2])[:60]
             match_info = f"{kw_str} in {loc_str}"
         embed, view = build_job_embed_with_buttons(job, uj.id, uj.relevance_score, match_info)
         success = await _dm_user(bot, user.discord_user_id, embed, view)
