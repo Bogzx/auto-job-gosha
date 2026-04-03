@@ -165,7 +165,7 @@ async def run_scrape_stage(
             tunnel_manager, keyword, location, max_age_days, boards=list(boards),
         )
         if not df.empty:
-            df = filter_dataframe(df, keywords[0])
+            df = filter_dataframe(df, keywords)
             jobs = await upsert_jobs(df)
             all_jobs.extend(jobs)
 

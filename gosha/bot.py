@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 import discord
 from discord import app_commands
 from discord.ext import commands
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from gosha.database import get_session
 from gosha.models import Subscription, User
@@ -27,11 +28,14 @@ class JobBot(commands.Bot):
     tunnel_manager: SSHTunnelManager | None = None
     alert_channel_id: int = 0
     settings: Settings | None = None  # Set by main.py
+    _started_at: float = 0.0  # timestamp for uptime tracking
+    _last_scrape_at: float = 0.0  # timestamp of last completed scrape
 
     def __init__(self) -> None:
         intents = discord.Intents.default()
         intents.message_content = False
         super().__init__(command_prefix="!", intents=intents)
+        self._started_at = time.monotonic()
 
     async def setup_hook(self) -> None:
         # Register interaction handler so feedback buttons
@@ -77,6 +81,53 @@ class SubscriptionCog(commands.Cog):
             await session.flush()
         return user
 
+    # ── keyword autocomplete ────────────────────────────────────
+
+    _KEYWORD_SUGGESTIONS = [
+        ("computer science internship — 20 intern/junior roles", "computer science internship"),
+        ("computer science — 18 general tech roles", "computer science"),
+        ("cs entry level — 11 junior/graduate/trainee roles", "cs entry level"),
+        ("tech internship — 9 tech + product + UX intern roles", "tech internship"),
+        ("data science — 8 data/ML/AI roles", "data science"),
+        ("software engineering — 9 dev roles (frontend, backend, etc.)", "software engineering"),
+    ]
+
+    async def _keyword_autocomplete(
+        self, interaction: discord.Interaction, current: str,
+    ) -> list[app_commands.Choice[str]]:
+        """Suggest smart keywords as the user types."""
+        current_lower = current.lower()
+        results = []
+        for label, value in self._KEYWORD_SUGGESTIONS:
+            if current_lower in label.lower() or current_lower in value.lower():
+                results.append(app_commands.Choice(name=label[:100], value=value))
+        # If the user typed something custom, include it as-is
+        if current.strip() and not results:
+            results.append(app_commands.Choice(name=current.strip(), value=current.strip()))
+        return results[:25]
+
+    # ── location autocomplete ───────────────────────────────────
+
+    async def _location_autocomplete(
+        self, interaction: discord.Interaction, current: str,
+    ) -> list[app_commands.Choice[str]]:
+        """Suggest known locations as the user types."""
+        from gosha.filters import LOCATION_ALIASES
+
+        current_lower = current.lower().strip()
+        seen: set[str] = set()
+        results: list[app_commands.Choice[str]] = []
+        for alias, info in LOCATION_ALIASES.items():
+            display = info["search"]
+            if display in seen:
+                continue
+            if current_lower in alias or current_lower in display.lower():
+                results.append(app_commands.Choice(name=display, value=alias))
+                seen.add(display)
+        if current.strip() and not results:
+            results.append(app_commands.Choice(name=current.strip(), value=current.strip()))
+        return results[:25]
+
     # ── /subscribe ──────────────────────────────────────────────
 
     @app_commands.command(
@@ -84,13 +135,20 @@ class SubscriptionCog(commands.Cog):
         description="Add a new job-search subscription",
     )
     @app_commands.describe(
-        keyword="Search term(s), comma-separated. e.g. 'software engineer, backend developer'",
-        location="Location(s), comma-separated. e.g. 'Cluj, Bucharest'",
+        keyword="Search term — pick a smart keyword or type your own",
+        location="City or country — start typing for suggestions",
         max_age_days="Only show jobs posted within this many days (default 7)",
-        experience="Experience level: intern, junior, mid, senior, any (default any)",
+        experience="Experience level filter (default: any)",
         exclude="Keywords to exclude, comma-separated. e.g. 'sales, marketing'",
-        salary_min="Minimum salary (annual, in local currency)",
+        salary_min="Minimum annual salary (in local currency)",
     )
+    @app_commands.choices(experience=[
+        app_commands.Choice(name="Any level", value="any"),
+        app_commands.Choice(name="Intern / Internship", value="intern"),
+        app_commands.Choice(name="Junior / Entry Level", value="junior"),
+        app_commands.Choice(name="Mid-level", value="mid"),
+        app_commands.Choice(name="Senior+", value="senior"),
+    ])
     async def subscribe(
         self,
         interaction: discord.Interaction,
@@ -136,18 +194,57 @@ class SubscriptionCog(commands.Cog):
                 except Exception:
                     pass  # Events are best-effort
 
+                # Build a helpful confirmation showing what will happen
+                from gosha.filters import expand_keyword, normalize_location
+
                 kw_display = ", ".join(keywords)
                 loc_display = ", ".join(locations)
-                await interaction.response.send_message(
-                    f"Subscribed! **#{sub.id}** — `{kw_display}` in `{loc_display}` "
-                    f"(last {max_age_days}d, experience: {experience})",
-                    ephemeral=True,
+
+                # Show expansion info if a smart keyword was used
+                expanded = expand_keyword(keywords[0])
+                expansion_note = ""
+                if len(expanded) > 1:
+                    expansion_note = (
+                        f"\nThis will search **{len(expanded)} job titles** automatically "
+                        f"(e.g. {', '.join(expanded[:3])}, ...)."
+                    )
+
+                # Show when jobs will arrive
+                interval = self.bot.settings.scrape_interval_minutes if self.bot.settings else 60
+
+                embed = discord.Embed(
+                    title=f"Subscribed! #{sub.id}",
+                    description=(
+                        f"**Keywords:** {kw_display}\n"
+                        f"**Location:** {loc_display}\n"
+                        f"**Experience:** {experience}\n"
+                        f"**Max age:** {max_age_days} days"
+                        f"{expansion_note}"
+                    ),
+                    color=discord.Color.green(),
                 )
+                embed.set_footer(
+                    text=f"Jobs are checked every {interval} min and sent to your DMs. "
+                    f"Use /scrape_now to get results immediately."
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as exc:
             log.exception("Error in /subscribe")
             msg = f"Error: {exc}"
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
+
+    @subscribe.autocomplete("keyword")
+    async def _subscribe_keyword_ac(
+        self, interaction: discord.Interaction, current: str,
+    ) -> list[app_commands.Choice[str]]:
+        return await self._keyword_autocomplete(interaction, current)
+
+    @subscribe.autocomplete("location")
+    async def _subscribe_location_ac(
+        self, interaction: discord.Interaction, current: str,
+    ) -> list[app_commands.Choice[str]]:
+        return await self._location_autocomplete(interaction, current)
 
     # ── /unsubscribe ────────────────────────────────────────────
 
@@ -397,6 +494,9 @@ class SubscriptionCog(commands.Cog):
 
     # ── /scrape_now ─────────────────────────────────────────────
 
+    _scrape_cooldown: dict[int, float] = {}  # discord_user_id -> last invocation timestamp
+    SCRAPE_COOLDOWN_SECONDS = 300  # 5 minutes between manual scrapes
+
     @app_commands.command(
         name="scrape_now", description="Force an immediate scrape cycle"
     )
@@ -410,8 +510,21 @@ class SubscriptionCog(commands.Cog):
                 )
                 return
 
+            # Rate limiting
+            now = time.monotonic()
+            uid = interaction.user.id
+            last_used = self._scrape_cooldown.get(uid, 0.0)
+            remaining = self.SCRAPE_COOLDOWN_SECONDS - (now - last_used)
+            if remaining > 0:
+                await interaction.response.send_message(
+                    f"Cooldown active — try again in {int(remaining)}s.",
+                    ephemeral=True,
+                )
+                return
+            self._scrape_cooldown[uid] = now
+
             await interaction.response.send_message(
-                "Scrape started...", ephemeral=True
+                "Scrape started — I'll DM you when it's done.", ephemeral=True
             )
 
             # Pass semantic config from bot settings
@@ -425,7 +538,21 @@ class SubscriptionCog(commands.Cog):
                 kwargs["semantic_model"] = self.bot.settings.semantic_model
                 kwargs["semantic_threshold"] = self.bot.settings.semantic_threshold
 
-            asyncio.create_task(run_scrape_cycle(**kwargs))
+            async def _run_and_notify() -> None:
+                try:
+                    total = await run_scrape_cycle(**kwargs)
+                    self.bot._last_scrape_at = time.monotonic()
+                    await interaction.followup.send(
+                        f"Scrape complete — **{total}** new jobs delivered.",
+                        ephemeral=True,
+                    )
+                except Exception as exc:
+                    log.exception("Scrape cycle failed")
+                    await interaction.followup.send(
+                        f"Scrape failed: {exc}", ephemeral=True
+                    )
+
+            asyncio.create_task(_run_and_notify())
         except Exception as exc:
             log.exception("Error in /scrape_now")
             msg = f"Error: {exc}"
@@ -498,3 +625,267 @@ class SubscriptionCog(commands.Cog):
             msg = f"Error: {exc}"
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
+
+    # ── /status ────────────────────────────────────────────────
+
+    @app_commands.command(
+        name="status", description="Check bot health and system status"
+    )
+    async def status(self, interaction: discord.Interaction) -> None:
+        try:
+            # Uptime
+            uptime_secs = int(time.monotonic() - self.bot._started_at)
+            hours, remainder = divmod(uptime_secs, 3600)
+            minutes, secs = divmod(remainder, 60)
+            uptime_str = f"{hours}h {minutes}m {secs}s"
+
+            # Tunnels
+            tunnel_mgr = self.bot.tunnel_manager
+            if tunnel_mgr:
+                proxies = tunnel_mgr.active_proxies()
+                total_tunnels = len(tunnel_mgr._tunnels)
+                tunnel_str = f"{len(proxies)}/{total_tunnels} active"
+            else:
+                tunnel_str = "No proxies configured"
+
+            # Last scrape
+            if self.bot._last_scrape_at > 0:
+                ago = int(time.monotonic() - self.bot._last_scrape_at)
+                last_scrape_str = f"{ago // 60}m {ago % 60}s ago"
+            else:
+                last_scrape_str = "Not yet"
+
+            # Subscription count
+            async with get_session() as session:
+                sub_count = await session.execute(
+                    select(func.count(Subscription.id)).where(
+                        Subscription.is_active.is_(True)
+                    )
+                )
+                active_subs = sub_count.scalar() or 0
+                user_count = await session.execute(
+                    select(func.count(User.id))
+                )
+                total_users = user_count.scalar() or 0
+
+            # Scrape interval
+            interval = self.bot.settings.scrape_interval_minutes if self.bot.settings else 60
+
+            embed = discord.Embed(
+                title="GOSHA Status",
+                color=discord.Color.green(),
+            )
+            embed.add_field(name="Uptime", value=uptime_str, inline=True)
+            embed.add_field(name="SSH Tunnels", value=tunnel_str, inline=True)
+            embed.add_field(name="Last Scrape", value=last_scrape_str, inline=True)
+            embed.add_field(name="Active Subscriptions", value=str(active_subs), inline=True)
+            embed.add_field(name="Total Users", value=str(total_users), inline=True)
+            embed.add_field(name="Scrape Interval", value=f"{interval}m", inline=True)
+
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as exc:
+            log.exception("Error in /status")
+            msg = f"Error: {exc}"
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+
+    # ── /quickstart ────────────────────────────────────────────
+
+    @app_commands.command(
+        name="quickstart",
+        description="Set up job alerts in one click (CS internships in your chosen city)",
+    )
+    @app_commands.describe(
+        location="Your city — start typing for suggestions (default: Romania)",
+    )
+    async def quickstart(
+        self,
+        interaction: discord.Interaction,
+        location: str = "romania",
+    ) -> None:
+        try:
+            async with get_session() as session:
+                user = await self._get_or_create_user(session, interaction.user.id)
+
+                # Check if user already has subscriptions
+                existing = await session.execute(
+                    select(func.count(Subscription.id)).where(
+                        Subscription.user_id == user.id,
+                    )
+                )
+                if (existing.scalar() or 0) > 0:
+                    await interaction.response.send_message(
+                        "You already have subscriptions! Use `/my_searches` to view them, "
+                        "or `/subscribe` to add more.",
+                        ephemeral=True,
+                    )
+                    return
+
+                sub = Subscription(
+                    user_id=user.id,
+                    max_age_days=14,
+                )
+                sub.keywords = ["computer science internship"]
+                sub.locations = [location.strip()]
+                sub.excluded_keywords = []
+                sub.company_blacklist = []
+                sub.experience_levels = ["intern", "junior"]
+                session.add(sub)
+                await session.commit()
+
+                try:
+                    from gosha.events import emit_subscription_created
+                    await emit_subscription_created(user.id, sub.id, sub.keywords)
+                except Exception:
+                    pass
+
+            from gosha.filters import normalize_location
+
+            _search_loc, _ = normalize_location(location.strip())
+            interval = self.bot.settings.scrape_interval_minutes if self.bot.settings else 60
+
+            embed = discord.Embed(
+                title="You're all set!",
+                description=(
+                    f"Created subscription **#{sub.id}**:\n\n"
+                    f"**Searching for:** CS internships & junior roles\n"
+                    f"**Location:** {_search_loc}\n"
+                    f"**Experience:** Intern + Junior\n"
+                    f"**Looking back:** 14 days\n\n"
+                    f"This searches **20 job titles** automatically across "
+                    f"Indeed, LinkedIn, and Glassdoor."
+                ),
+                color=discord.Color.green(),
+            )
+            embed.set_footer(
+                text=f"Jobs are checked every {interval} min. "
+                f"Use /scrape_now to get results right now!"
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as exc:
+            log.exception("Error in /quickstart")
+            msg = f"Error: {exc}"
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+
+    @quickstart.autocomplete("location")
+    async def _quickstart_location_ac(
+        self, interaction: discord.Interaction, current: str,
+    ) -> list[app_commands.Choice[str]]:
+        return await self._location_autocomplete(interaction, current)
+
+    # ── /help ──────────────────────────────────────────────────
+
+    @app_commands.command(
+        name="help", description="Show all commands and how to use them"
+    )
+    async def help_cmd(self, interaction: discord.Interaction) -> None:
+        embed = discord.Embed(
+            title="GOSHA — Job Matching Bot",
+            description="I automatically scrape Indeed, LinkedIn & Glassdoor and DM you matching jobs.",
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(
+            name="/quickstart [location]",
+            value="One-click setup for CS internships. Best way to get started!",
+            inline=False,
+        )
+        embed.add_field(
+            name="/subscribe keyword location [options]",
+            value=(
+                "Create a custom subscription. Smart keywords:\n"
+                "`computer science internship` — 20 intern/junior roles\n"
+                "`computer science` — 18 general tech roles\n"
+                "`cs entry level` — 11 junior/graduate roles\n"
+                "`data science` — 8 data/ML/AI roles\n"
+                "Or type any custom keyword."
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="/my_searches",
+            value="List all your subscriptions with their IDs.",
+            inline=True,
+        )
+        embed.add_field(
+            name="/edit id [keyword] [location] ...",
+            value="Modify an existing subscription.",
+            inline=True,
+        )
+        embed.add_field(
+            name="/unsubscribe id",
+            value="Delete a subscription.",
+            inline=True,
+        )
+        embed.add_field(
+            name="/pause id  &  /resume id",
+            value="Temporarily stop/restart a subscription.",
+            inline=True,
+        )
+        embed.add_field(
+            name="/scrape_now",
+            value="Force an immediate scrape (5 min cooldown).",
+            inline=True,
+        )
+        embed.add_field(
+            name="/stats",
+            value="See your delivery statistics.",
+            inline=True,
+        )
+        embed.add_field(
+            name="/show_keywords keyword",
+            value="See the exact job titles a smart keyword searches for.",
+            inline=True,
+        )
+        embed.set_footer(
+            text="Jobs arrive via DM — make sure your DMs are open! "
+            "(Server Settings > Privacy > Allow DMs)"
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    # ── /show_keywords ─────────────────────────────────────────
+
+    @app_commands.command(
+        name="show_keywords",
+        description="See the exact job titles a smart keyword will search for",
+    )
+    @app_commands.describe(
+        keyword="The keyword to expand — pick from the list or type your own",
+    )
+    async def show_keywords(
+        self, interaction: discord.Interaction, keyword: str,
+    ) -> None:
+        from gosha.filters import expand_keyword
+
+        terms = expand_keyword(keyword)
+
+        if len(terms) == 1 and terms[0] == keyword:
+            await interaction.response.send_message(
+                f"`{keyword}` is not a smart keyword — it will be searched as-is on job boards.\n\n"
+                f"**Smart keywords** that auto-expand:\n"
+                + "\n".join(f"- `{k}`" for k in [
+                    "computer science internship",
+                    "computer science",
+                    "cs entry level",
+                    "tech internship",
+                    "data science",
+                    "software engineering",
+                ]),
+                ephemeral=True,
+            )
+            return
+
+        numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(terms))
+        embed = discord.Embed(
+            title=f"Keyword: {keyword}",
+            description=f"This will search **{len(terms)} job titles**:\n\n{numbered}",
+            color=discord.Color.blurple(),
+        )
+        embed.set_footer(text="Each title is searched separately on Indeed, LinkedIn & Glassdoor.")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @show_keywords.autocomplete("keyword")
+    async def _show_keywords_ac(
+        self, interaction: discord.Interaction, current: str,
+    ) -> list[app_commands.Choice[str]]:
+        return await self._keyword_autocomplete(interaction, current)

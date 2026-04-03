@@ -85,3 +85,50 @@ class SSHTunnelManager:
             for t in self._tunnels
             if t.process and t.process.returncode is None
         ]
+
+    async def check_and_restart(self) -> int:
+        """Restart any tunnels that have died. Returns the number restarted."""
+        ssh_bin = shutil.which("ssh")
+        if ssh_bin is None:
+            return 0
+
+        restarted = 0
+        for t in self._tunnels:
+            if t.process is not None and t.process.returncode is None:
+                continue  # Still alive
+            if t.process is not None:
+                log.warning(
+                    "Tunnel to %s died (exit=%s) — restarting",
+                    t.vps.host,
+                    t.process.returncode,
+                )
+            cmd = [
+                ssh_bin,
+                "-i", t.vps.key_path,
+                "-D", str(t.vps.local_port),
+                "-N", "-q",
+                "-o", "StrictHostKeyChecking=no",
+                "-o", "UserKnownHostsFile=/dev/null",
+                "-o", "ServerAliveInterval=30",
+                "-o", "ServerAliveCountMax=3",
+                "-o", "ExitOnForwardFailure=yes",
+                f"{t.vps.user}@{t.vps.host}",
+            ]
+            t.process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await asyncio.sleep(1)
+            if t.process.returncode is not None:
+                stderr = (
+                    (await t.process.stderr.read()).decode()
+                    if t.process.stderr
+                    else ""
+                )
+                log.error("Restart failed for %s: %s", t.vps.host, stderr)
+                t.process = None
+            else:
+                log.info("Restarted tunnel on 127.0.0.1:%d", t.vps.local_port)
+                restarted += 1
+        return restarted

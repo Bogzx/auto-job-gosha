@@ -44,8 +44,15 @@ async def main() -> None:
 
     # ── Scheduler ───────────────────────────────────────────────
     scheduler = AsyncIOScheduler()
+
+    async def _scrape_and_track(**kwargs: object) -> None:
+        """Wrapper that tracks last scrape time on the bot."""
+        import time as _time
+        total = await run_scrape_cycle(**kwargs)
+        bot._last_scrape_at = _time.monotonic()
+
     scheduler.add_job(
-        run_scrape_cycle,
+        _scrape_and_track,
         trigger=IntervalTrigger(minutes=settings.scrape_interval_minutes),
         kwargs={
             "bot": bot,
@@ -59,6 +66,16 @@ async def main() -> None:
         name="Periodic job scrape",
         replace_existing=True,
     )
+
+    # Health-check tunnels every 5 minutes and restart dead ones
+    if settings.vps_list:
+        scheduler.add_job(
+            tunnel_mgr.check_and_restart,
+            trigger=IntervalTrigger(minutes=5),
+            id="tunnel_health_check",
+            name="SSH tunnel health check",
+            replace_existing=True,
+        )
 
     @bot.event
     async def on_ready() -> None:

@@ -365,4 +365,9 @@ class ChannelRegistry:
         if preference.mode == "digest":
             return await channel.send_batch(payloads, preference.target)
         else:
-            return await channel.send_batch(payloads, preference.target)
+            # Instant mode: send one at a time via the base send() method
+            sent = 0
+            for payload in payloads:
+                if await channel.send(payload, preference.target):
+                    sent += 1
+            return sent

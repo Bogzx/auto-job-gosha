@@ -137,28 +137,30 @@ async def enqueue_deliveries_batch(
 
 
 async def get_pending_deliveries(limit: int = 100) -> list[tuple[UserJob, Job, User]]:
-    """Return pending deliveries with their associated Job and User, oldest first."""
+    """Return pending deliveries (enqueued but not yet sent), oldest first."""
     async with get_session() as session:
         result = await session.execute(
             select(UserJob, Job, User)
             .join(Job, UserJob.job_id == Job.id)
             .join(User, UserJob.user_id == User.id)
-            .where(UserJob.feedback == None)  # noqa: E711 — NULL check
-            .where(UserJob.delivered_at != None)  # noqa: E711
-            .order_by(UserJob.delivered_at.asc())
+            .where(UserJob.feedback.is_(None))
+            .where(UserJob.delivered_at.is_(None))
+            .order_by(UserJob.id.asc())
             .limit(limit)
         )
         return list(result.all())
 
 
 async def mark_delivered(user_job_id: int) -> None:
-    """Mark a UserJob as successfully delivered (it already has delivered_at from creation)."""
-    # The UserJob.delivered_at is set at creation time. For the pipeline
-    # architecture, delivery is a two-step process:
-    # 1. enqueue_delivery() creates the record with delivered_at
-    # 2. The delivery worker actually sends the message
-    # If sending fails, we can add retry logic here.
-    pass
+    """Mark a UserJob as successfully delivered by setting delivered_at."""
+    async with get_session() as session:
+        result = await session.execute(
+            select(UserJob).where(UserJob.id == user_job_id)
+        )
+        uj = result.scalar_one_or_none()
+        if uj is not None and uj.delivered_at is None:
+            uj.delivered_at = datetime.now(timezone.utc)
+            await session.commit()
 
 
 async def get_delivery_stats() -> dict:

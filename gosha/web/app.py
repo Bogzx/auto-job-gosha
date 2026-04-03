@@ -25,7 +25,10 @@ from sqlalchemy import func, select
 from gosha.database import get_session
 from gosha.models import Job, Subscription, User, UserJob
 from gosha.web.auth import (
+    IS_PRODUCTION,
+    SESSION_SECRET_DEFAULT,
     SessionManager,
+    _check_session_secret,
     get_current_user,
     oauth2_callback_handler,
     oauth2_login_url,
@@ -39,6 +42,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Ensure DB is initialised when running the web app standalone."""
     from gosha.database import _engine, init_db
 
+    _check_session_secret()
+
     if _engine is None:
         db_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///data/jobs.db")
         await init_db(db_url)
@@ -49,7 +54,7 @@ app = FastAPI(title="GOSHA Dashboard", version="1.0.0", lifespan=lifespan)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 session_mgr = SessionManager(
-    secret_key=os.getenv("SESSION_SECRET", "change-me-in-production"),
+    secret_key=os.getenv("SESSION_SECRET", SESSION_SECRET_DEFAULT),
 )
 
 
@@ -94,7 +99,14 @@ async def callback(request: Request, code: str = Query(...)):
     # Create session
     token = session_mgr.create_session(discord_id, username)
     response = RedirectResponse("/dashboard", status_code=303)
-    response.set_cookie("session", token, httponly=True, max_age=86400 * 7)
+    response.set_cookie(
+        "session",
+        token,
+        httponly=True,
+        max_age=86400 * 7,
+        secure=IS_PRODUCTION,
+        samesite="lax",
+    )
     return response
 
 
@@ -286,6 +298,26 @@ async def api_feedback(
     session_data = session_mgr.get_session(request.cookies.get("session", ""))
     if not session_data:
         raise HTTPException(status_code=401)
+
+    discord_id = session_data["discord_id"]
+
+    # Verify the UserJob belongs to the requesting user
+    async with get_session() as session:
+        user_result = await session.execute(
+            select(User).where(User.discord_user_id == discord_id)
+        )
+        user = user_result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404)
+
+        uj_result = await session.execute(
+            select(UserJob).where(
+                UserJob.id == user_job_id,
+                UserJob.user_id == user.id,
+            )
+        )
+        if uj_result.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="UserJob not found")
 
     from gosha.feedback import record_feedback
 

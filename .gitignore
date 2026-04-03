@@ -4,6 +4,8 @@ data/
 keys/
 __pycache__/
 *.pyc
-*..venv/
+.venv/
 venv/
 .zip
+caddy_data/
+caddy_config/

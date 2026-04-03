@@ -139,6 +139,22 @@ LOCATION_ALIASES: dict[str, dict[str, Any]] = {
         "search": "Romania",
         "match": ["romania", "bucharest", "cluj", "timisoara", "iasi", "brasov"],
     },
+    # Remote
+    "remote": {
+        "search": "Remote",
+        "match": ["remote", "work from home", "wfh", "anywhere"],
+    },
+    # Central / Eastern Europe — popular with Romanian CS students
+    "prague": {"search": "Prague, Czech Republic", "match": ["prague", "praha"]},
+    "warsaw": {"search": "Warsaw, Poland", "match": ["warsaw", "warszawa"]},
+    "budapest": {"search": "Budapest, Hungary", "match": ["budapest"]},
+    "krakow": {"search": "Krakow, Poland", "match": ["krakow", "kraków", "cracow"]},
+    "vienna": {"search": "Vienna, Austria", "match": ["vienna", "wien"]},
+    # Western Europe tech hubs
+    "munich": {"search": "Munich, Germany", "match": ["munich", "münchen"]},
+    "paris": {"search": "Paris, France", "match": ["paris"]},
+    "barcelona": {"search": "Barcelona, Spain", "match": ["barcelona"]},
+    "zurich": {"search": "Zurich, Switzerland", "match": ["zurich", "zürich"]},
 }
 
 # ── Compiled regexes for title relevance ──────────────────────────────
@@ -154,7 +170,7 @@ SENIOR_RE = re.compile(
 )
 
 TECH_RE = re.compile(
-    r"(?i)\b(?:software|developer|develop(?:ment|er)|engineer(?:ing)?|"
+    r"(?i)\b(?:software|develop(?:ment|er)|engineer(?:ing)?|"
     r"programm(?:er|ing)|coder|coding|"
     r"data|machine.?learning|\bml\b|\bai\b|deep.?learning|\bnlp\b|"
     r"devops|dev.?ops|cloud|cyber|security|"
@@ -237,19 +253,33 @@ def title_is_relevant(title: str, keyword: str) -> bool:
 
 
 def matches_excluded_keywords(text: str, excluded: list[str]) -> bool:
-    """Return True if text contains any of the excluded keywords."""
+    """Return True if text contains any of the excluded keywords.
+
+    Uses word-boundary matching so excluding "sales" won't reject
+    "wholesale" but will reject "Sales Manager".
+    """
     if not excluded or not text:
         return False
     text_lower = text.lower()
-    return any(kw.lower() in text_lower for kw in excluded)
+    for kw in excluded:
+        kw_lower = kw.lower().strip()
+        if not kw_lower:
+            continue
+        pattern = r"\b" + re.escape(kw_lower) + r"\b"
+        if re.search(pattern, text_lower):
+            return True
+    return False
 
 
 def matches_company_blacklist(company: str, blacklist: list[str]) -> bool:
-    """Return True if company is in the blacklist."""
+    """Return True if company matches any blacklisted name.
+
+    Uses substring matching so "Google" blocks "Google Ireland".
+    """
     if not blacklist or not company:
         return False
     company_lower = company.lower().strip()
-    return any(bl.lower().strip() == company_lower for bl in blacklist)
+    return any(bl.lower().strip() in company_lower for bl in blacklist)
 
 
 def matches_salary_minimum(
@@ -299,18 +329,26 @@ def city_only(location: str) -> str:
     return location.split(",")[0].strip()
 
 
-def filter_dataframe(df: pd.DataFrame, keyword: str) -> pd.DataFrame:
-    """Apply title-relevance filtering to a scraped DataFrame."""
+def filter_dataframe(df: pd.DataFrame, keyword: str | list[str]) -> pd.DataFrame:
+    """Apply title-relevance filtering to a scraped DataFrame.
+
+    Accepts a single keyword or a list. A job passes if it's relevant
+    for *any* of the provided keywords.
+    """
     if df.empty or "title" not in df.columns:
         return df
 
+    keywords = [keyword] if isinstance(keyword, str) else keyword
+
     before = len(df)
-    filtered = df[df["title"].apply(lambda t: title_is_relevant(str(t), keyword))]
+    filtered = df[df["title"].apply(
+        lambda t: any(title_is_relevant(str(t), kw) for kw in keywords)
+    )]
     removed = before - len(filtered)
     if removed > 0:
         import logging
         logging.getLogger(__name__).info(
-            "Relevance filter: %d -> %d results (removed %d for '%s')",
-            before, len(filtered), removed, keyword,
+            "Relevance filter: %d -> %d results (removed %d for %r)",
+            before, len(filtered), removed, keywords,
         )
     return filtered

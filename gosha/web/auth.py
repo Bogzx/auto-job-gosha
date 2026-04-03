@@ -15,7 +15,11 @@ log = logging.getLogger(__name__)
 
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
 DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
-DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8080/callback")
+
+# Build redirect URI: explicit env var > derived from DOMAIN > localhost fallback
+_domain = os.getenv("DOMAIN", "")
+_default_redirect = f"https://{_domain}/callback" if _domain else "http://localhost:8080/callback"
+DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", _default_redirect)
 
 DISCORD_API = "https://discord.com/api/v10"
 DISCORD_OAUTH2_URL = "https://discord.com/api/oauth2/authorize"
@@ -121,8 +125,22 @@ class SessionManager:
             return None
 
 
+SESSION_SECRET_DEFAULT = "change-me-in-production"
+
+IS_PRODUCTION = bool(_domain)
+
+
+def _check_session_secret() -> None:
+    secret = os.getenv("SESSION_SECRET", SESSION_SECRET_DEFAULT)
+    if secret == SESSION_SECRET_DEFAULT:
+        log.warning(
+            "SESSION_SECRET is set to the default value — sessions are NOT secure. "
+            "Set a random SESSION_SECRET in your .env file."
+        )
+
+
 async def get_current_user(request: Any) -> dict | None:
     """FastAPI dependency to get current user from session cookie."""
     token = request.cookies.get("session", "")
-    mgr = SessionManager(os.getenv("SESSION_SECRET", "change-me"))
+    mgr = SessionManager(os.getenv("SESSION_SECRET", SESSION_SECRET_DEFAULT))
     return mgr.get_session(token)

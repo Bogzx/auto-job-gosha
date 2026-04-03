@@ -10,16 +10,25 @@ log = logging.getLogger(__name__)
 
 
 class JobFeedbackView(discord.ui.View):
-    """View with Interested / Not Relevant buttons on job embeds.
+    """View with Apply / Interested / Not Relevant buttons on job embeds.
 
     The custom_id encodes the UserJob ID so the handler can record feedback
     even after a bot restart (handled by setup_interaction_handler).
     """
 
-    def __init__(self, user_job_id: int) -> None:
+    def __init__(self, user_job_id: int, job_url: str | None = None) -> None:
         # timeout=None makes the view persistent (survives bot restarts)
         super().__init__(timeout=None)
         self.user_job_id = user_job_id
+
+        # Apply button — a URL button that opens the job posting directly
+        if job_url:
+            self.add_item(discord.ui.Button(
+                style=discord.ButtonStyle.link,
+                label="Apply",
+                url=job_url,
+                emoji="\U0001f4e8",
+            ))
 
         interested_btn = discord.ui.Button(
             style=discord.ButtonStyle.success,
@@ -149,8 +158,8 @@ def build_job_embed_with_buttons(
         )
         embed.add_field(name="Description", value=desc, inline=False)
 
-    score_str = f"{relevance_score:.0%}" if relevance_score else "N/A"
+    score_str = f"{relevance_score:.0%}" if relevance_score is not None else "N/A"
     embed.set_footer(text=f"Source: {job.source} | Score: {score_str}")
 
-    view = JobFeedbackView(user_job_id)
+    view = JobFeedbackView(user_job_id, job_url=job.url)
     return embed, view

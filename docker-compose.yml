@@ -1,14 +1,51 @@
 services:
+  # ── Discord bot + scheduler + SSH tunnels ──────────────────
   job-bot:
     build: .
     container_name: job-bot
     restart: unless-stopped
-    env_file:
-      - .env
+    env_file: .env
     volumes:
-      # Persist the SQLite database across rebuilds
       - ./data:/app/data
-      # Mount SSH keys (read-only) – place all private keys in ./keys/
       - ./keys:/root/.ssh:ro
-    # The container needs a real network stack for SSH tunnels
+    # Host networking required for SSH tunnel SOCKS5 ports
     network_mode: host
+
+  # ── Web dashboard (FastAPI) ────────────────────────────────
+  web:
+    build: .
+    container_name: gosha-web
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    command: ["uvicorn", "gosha.web.app:app", "--host", "0.0.0.0", "--port", "8080"]
+    expose:
+      - "8080"
+    networks:
+      - web
+
+  # ── Caddy reverse proxy (automatic HTTPS) ──────────────────
+  caddy:
+    image: caddy:2
+    container_name: gosha-caddy
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    networks:
+      - web
+
+networks:
+  web:
+
+volumes:
+  caddy_data:
+  caddy_config:
