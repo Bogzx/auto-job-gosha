@@ -5,6 +5,9 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends openssh-client && \
     rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN useradd --create-home --uid 1000 app
+
 WORKDIR /app
 
 COPY requirements.txt .
@@ -12,8 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Ensure the data directory exists for the SQLite database
-RUN mkdir -p /app/data
+# Ensure data directory exists and is owned by app user
+RUN mkdir -p /app/data && chown -R app:app /app/data
+
+USER app
 
 # Run the bot (main.py shim delegates to gosha.main)
 # Override CMD to run just the web: ["uvicorn", "gosha.web.app:app", "--host", "0.0.0.0", "--port", "8080"]

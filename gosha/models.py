@@ -60,12 +60,64 @@ class _JSONListMixin:
 # User
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Tier limits — used by the bot to gate features
+# ---------------------------------------------------------------------------
+
+TIER_LIMITS: dict[str, dict[str, int | bool]] = {
+    "free": {
+        "max_subscriptions": 5,
+        "max_keywords_per_sub": 5,
+        "max_locations_per_sub": 3,
+        "max_applications": 10,           # tracked applications
+        "cover_letters_per_month": 5,     # AI cover letter generations
+        "scrape_now_cooldown": 300,       # 5 min
+        "semantic_matching": True,
+        "email_delivery": False,
+        "webhook_delivery": False,
+        "priority_delivery": False,       # free users get jobs after pro
+    },
+    "pro": {
+        "max_subscriptions": 15,
+        "max_keywords_per_sub": 10,
+        "max_locations_per_sub": 10,
+        "max_applications": 999,          # unlimited tracking
+        "cover_letters_per_month": 999,   # unlimited
+        "scrape_now_cooldown": 120,       # 2 min
+        "semantic_matching": True,
+        "email_delivery": True,
+        "webhook_delivery": False,
+        "priority_delivery": True,        # pro users get jobs first
+    },
+    "unlimited": {
+        "max_subscriptions": 999,
+        "max_keywords_per_sub": 50,
+        "max_locations_per_sub": 50,
+        "max_applications": 999,
+        "cover_letters_per_month": 999,
+        "scrape_now_cooldown": 60,        # 1 min
+        "semantic_matching": True,
+        "email_delivery": True,
+        "webhook_delivery": True,
+        "priority_delivery": True,
+    },
+}
+
+
+def get_tier_limits(tier: str) -> dict[str, int | bool]:
+    """Return limits for a given tier, defaulting to free."""
+    return TIER_LIMITS.get(tier, TIER_LIMITS["free"])
+
+
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     discord_user_id: Mapped[int] = mapped_column(
         BigInteger, unique=True, nullable=False, index=True
+    )
+    tier: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="free"
     )
 
     subscriptions: Mapped[list[Subscription]] = relationship(
@@ -74,6 +126,10 @@ class User(Base):
     user_jobs: Mapped[list[UserJob]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
+
+    @property
+    def limits(self) -> dict[str, int | bool]:
+        return get_tier_limits(self.tier)
 
 
 # ---------------------------------------------------------------------------
@@ -248,3 +304,80 @@ class UserJob(Base):
             f"<UserJob user_id={self.user_id} job_id={self.job_id} "
             f"feedback={self.feedback!r}>"
         )
+
+
+# ---------------------------------------------------------------------------
+# Application — tracks where users have applied
+# ---------------------------------------------------------------------------
+
+APPLICATION_STATUSES = [
+    "applied",        # Just submitted
+    "phone_screen",   # Got a phone screen
+    "interview",      # Interviewing
+    "offer",          # Received an offer
+    "rejected",       # Rejected at any stage
+    "withdrawn",      # User withdrew
+]
+
+
+class Application(Base):
+    """Tracks a user's application to a specific job through the hiring pipeline."""
+
+    __tablename__ = "applications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
+    job_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("jobs.id"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="applied"
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+
+    user: Mapped[User] = relationship()
+    job: Mapped[Job] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "job_id", name="uq_user_application"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Application user={self.user_id} job={self.job_id} status={self.status!r}>"
+
+
+# ---------------------------------------------------------------------------
+# CoverLetter — stores generated cover letters + tracks monthly usage
+# ---------------------------------------------------------------------------
+
+
+class CoverLetter(Base):
+    """Stores an AI-generated cover letter for a specific user + job pair."""
+
+    __tablename__ = "cover_letters"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False
+    )
+    job_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("jobs.id"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+
+    user: Mapped[User] = relationship()
+    job: Mapped[Job] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<CoverLetter user={self.user_id} job={self.job_id}>"

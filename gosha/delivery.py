@@ -180,11 +180,14 @@ class EmailChannel(DeliveryChannel):
         return len(payloads) if success else 0
 
     def _format_single(self, payload: DeliveryPayload) -> str:
+        from html import escape
+
         j = payload.job
+        safe_url = escape(j.url or "", quote=True)
         lines = [
-            f"<h2><a href='{j.url}'>{j.title}</a></h2>",
-            f"<p><strong>Company:</strong> {j.company}</p>",
-            f"<p><strong>Location:</strong> {j.location}</p>",
+            f"<h2><a href='{safe_url}'>{escape(j.title or '')}</a></h2>",
+            f"<p><strong>Company:</strong> {escape(j.company or '')}</p>",
+            f"<p><strong>Location:</strong> {escape(j.location or '')}</p>",
         ]
         if j.salary_min or j.salary_max:
             parts = []
@@ -194,11 +197,11 @@ class EmailChannel(DeliveryChannel):
                 parts.append(f"{j.salary_max:,.0f}")
             salary = " - ".join(parts)
             if j.salary_currency:
-                salary += f" {j.salary_currency}"
+                salary += f" {escape(j.salary_currency)}"
             lines.append(f"<p><strong>Salary:</strong> {salary}</p>")
         if j.description:
             desc = j.description[:300] + "..." if len(j.description) > 300 else j.description
-            lines.append(f"<p>{desc}</p>")
+            lines.append(f"<p>{escape(desc)}</p>")
         return "\n".join(lines)
 
     def _format_digest(self, payloads: list[DeliveryPayload]) -> str:

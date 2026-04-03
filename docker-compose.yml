@@ -7,7 +7,7 @@ services:
     env_file: .env
     volumes:
       - ./data:/app/data
-      - ./keys:/root/.ssh:ro
+      - ./keys:/home/app/.ssh:ro
     # Host networking required for SSH tunnel SOCKS5 ports
     network_mode: host
 

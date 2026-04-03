@@ -190,20 +190,26 @@ async def _migrate_seen_jobs(conn: AsyncConnection, existing_tables: list[str]) 
     now = datetime.now(timezone.utc).isoformat()
 
     # Step 1: Create stub Job records for each unique URL
-    await conn.execute(text(f"""
-        INSERT OR IGNORE INTO jobs (url, title, company, source, is_active, first_seen_at, last_seen_at)
-        SELECT DISTINCT job_url, 'Unknown (migrated)', 'Unknown', 'migrated', 1, '{now}', '{now}'
-        FROM seen_jobs
-        WHERE job_url IS NOT NULL AND job_url != ''
-    """))
+    await conn.execute(
+        text("""
+            INSERT OR IGNORE INTO jobs (url, title, company, source, is_active, first_seen_at, last_seen_at)
+            SELECT DISTINCT job_url, 'Unknown (migrated)', 'Unknown', 'migrated', 1, :now, :now
+            FROM seen_jobs
+            WHERE job_url IS NOT NULL AND job_url != ''
+        """),
+        {"now": now},
+    )
 
     # Step 2: Map seen_jobs → user_jobs via the stub Job records
-    await conn.execute(text(f"""
-        INSERT OR IGNORE INTO user_jobs (user_id, job_id, delivered_at)
-        SELECT sj.user_id, j.id, COALESCE(sj.seen_at, '{now}')
-        FROM seen_jobs sj
-        JOIN jobs j ON j.url = sj.job_url
-    """))
+    await conn.execute(
+        text("""
+            INSERT OR IGNORE INTO user_jobs (user_id, job_id, delivered_at)
+            SELECT sj.user_id, j.id, COALESCE(sj.seen_at, :now)
+            FROM seen_jobs sj
+            JOIN jobs j ON j.url = sj.job_url
+        """),
+        {"now": now},
+    )
 
     result = await conn.execute(text("SELECT COUNT(*) FROM user_jobs"))
     migrated = result.scalar()

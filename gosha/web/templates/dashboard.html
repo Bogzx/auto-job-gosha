@@ -91,6 +91,22 @@
     <script>
         let currentPage = 1;
 
+        // Escape HTML to prevent XSS from untrusted job data
+        function esc(s) {
+            if (s == null) return '';
+            const d = document.createElement('div');
+            d.textContent = String(s);
+            return d.innerHTML;
+        }
+
+        // Only allow safe URL protocols
+        function safeUrl(url) {
+            if (!url) return '#';
+            const s = String(url).trim();
+            if (s.startsWith('https://') || s.startsWith('http://')) return esc(s);
+            return '#';
+        }
+
         async function loadJobs(page = 1) {
             currentPage = page;
             const container = document.getElementById('job-list');
@@ -112,26 +128,26 @@
                         : '<span class="badge badge-gray">No feedback</span>';
 
                     const salary = (job.salary_min || job.salary_max)
-                        ? `<span>${[job.salary_min, job.salary_max].filter(Boolean).map(v => v.toLocaleString()).join(' - ')}${job.salary_currency ? ' ' + job.salary_currency : ''}</span>`
-                        : '';
+                        ? `<span>${[job.salary_min, job.salary_max].filter(Boolean).map(v => v.toLocaleString()).join(' - ')}${job.salary_currency ? ' ' + esc(job.salary_currency) : ''}</span>`
+                        : '<span style="color:#52525b">Salary not listed</span>';
 
                     const score = job.score ? `<span>Score: ${(job.score * 100).toFixed(0)}%</span>` : '';
 
                     html += `
                         <div class="job-card">
-                            <h4><a href="${job.url}" target="_blank">${job.title}</a></h4>
+                            <h4><a href="${safeUrl(job.url)}" target="_blank" rel="noopener noreferrer">${esc(job.title)}</a></h4>
                             <div class="job-meta">
-                                <span>${job.company}</span>
-                                <span>${job.location}</span>
-                                <span>${job.source}</span>
+                                <span>${esc(job.company)}</span>
+                                <span>${esc(job.location)}</span>
+                                <span>${esc(job.source)}</span>
                                 ${salary}
                                 ${score}
                                 ${feedbackBadge}
                             </div>
                             ${!job.feedback ? `
                             <div class="feedback-btns">
-                                <button onclick="sendFeedback(${job.id}, 'interested', this)">Interested</button>
-                                <button onclick="sendFeedback(${job.id}, 'not_relevant', this)">Not Relevant</button>
+                                <button onclick="sendFeedback(${parseInt(job.id)}, 'interested', this)">Interested</button>
+                                <button onclick="sendFeedback(${parseInt(job.id)}, 'not_relevant', this)">Not Relevant</button>
                             </div>` : ''}
                         </div>`;
                 }

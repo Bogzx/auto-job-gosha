@@ -7,6 +7,7 @@ import hmac
 import json
 import logging
 import os
+import secrets
 import time
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from typing import Any
@@ -26,18 +27,43 @@ DISCORD_OAUTH2_URL = "https://discord.com/api/oauth2/authorize"
 DISCORD_TOKEN_URL = f"{DISCORD_API}/oauth2/token"
 DISCORD_USER_URL = f"{DISCORD_API}/users/@me"
 
+SESSION_SECRET_DEFAULT = "change-me-in-production"
 
-def oauth2_login_url() -> str | None:
-    """Generate the Discord OAuth2 authorization URL."""
+IS_PRODUCTION = bool(_domain)
+
+
+def _check_session_secret() -> None:
+    """Validate the session secret at startup."""
+    secret = os.getenv("SESSION_SECRET", SESSION_SECRET_DEFAULT)
+    if secret == SESSION_SECRET_DEFAULT:
+        if IS_PRODUCTION:
+            raise RuntimeError(
+                "SESSION_SECRET must be changed in production. "
+                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        log.warning(
+            "SESSION_SECRET is set to the default value — sessions are NOT secure. "
+            "Set a random SESSION_SECRET in your .env file."
+        )
+
+
+def oauth2_login_url() -> tuple[str | None, str | None]:
+    """Generate the Discord OAuth2 authorization URL with CSRF state.
+
+    Returns:
+        (url, state) tuple. Both are None if OAuth2 is not configured.
+    """
     if not DISCORD_CLIENT_ID:
-        return None
+        return None, None
+    state = secrets.token_urlsafe(32)
     params = (
         f"?client_id={DISCORD_CLIENT_ID}"
         f"&redirect_uri={DISCORD_REDIRECT_URI}"
         f"&response_type=code"
         f"&scope=identify"
+        f"&state={state}"
     )
-    return DISCORD_OAUTH2_URL + params
+    return DISCORD_OAUTH2_URL + params, state
 
 
 async def oauth2_callback_handler(code: str) -> dict | None:
@@ -62,7 +88,7 @@ async def oauth2_callback_handler(code: str) -> dict | None:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
             if token_resp.status_code != 200:
-                log.error("OAuth2 token exchange failed: %s", token_resp.text)
+                log.error("OAuth2 token exchange failed (status %d)", token_resp.status_code)
                 return None
 
             token_data = token_resp.json()
@@ -74,7 +100,7 @@ async def oauth2_callback_handler(code: str) -> dict | None:
                 headers={"Authorization": f"Bearer {access_token}"},
             )
             if user_resp.status_code != 200:
-                log.error("Failed to fetch Discord user: %s", user_resp.text)
+                log.error("Failed to fetch Discord user (status %d)", user_resp.status_code)
                 return None
 
             return user_resp.json()
@@ -82,8 +108,8 @@ async def oauth2_callback_handler(code: str) -> dict | None:
     except ImportError:
         log.error("httpx not installed — OAuth2 unavailable")
         return None
-    except Exception as exc:
-        log.error("OAuth2 callback failed: %s", exc)
+    except Exception:
+        log.exception("OAuth2 callback failed")
         return None
 
 
@@ -123,24 +149,3 @@ class SessionManager:
             return data
         except Exception:
             return None
-
-
-SESSION_SECRET_DEFAULT = "change-me-in-production"
-
-IS_PRODUCTION = bool(_domain)
-
-
-def _check_session_secret() -> None:
-    secret = os.getenv("SESSION_SECRET", SESSION_SECRET_DEFAULT)
-    if secret == SESSION_SECRET_DEFAULT:
-        log.warning(
-            "SESSION_SECRET is set to the default value — sessions are NOT secure. "
-            "Set a random SESSION_SECRET in your .env file."
-        )
-
-
-async def get_current_user(request: Any) -> dict | None:
-    """FastAPI dependency to get current user from session cookie."""
-    token = request.cookies.get("session", "")
-    mgr = SessionManager(os.getenv("SESSION_SECRET", SESSION_SECRET_DEFAULT))
-    return mgr.get_session(token)

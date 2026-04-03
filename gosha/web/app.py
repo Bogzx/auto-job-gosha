@@ -10,6 +10,7 @@ Provides:
 
 from __future__ import annotations
 
+import hmac
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -17,10 +18,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from gosha.database import get_session
 from gosha.models import Job, Subscription, User, UserJob
@@ -29,12 +31,36 @@ from gosha.web.auth import (
     SESSION_SECRET_DEFAULT,
     SessionManager,
     _check_session_secret,
-    get_current_user,
     oauth2_callback_handler,
     oauth2_login_url,
 )
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+# ---------------------------------------------------------------------------
+# Security headers middleware
+# ---------------------------------------------------------------------------
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if IS_PRODUCTION:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=63072000; includeSubDomains; preload"
+            )
+        return response
+
+
+# ---------------------------------------------------------------------------
+# Lifespan
+# ---------------------------------------------------------------------------
 
 
 @asynccontextmanager
@@ -51,11 +77,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="GOSHA Dashboard", version="1.0.0", lifespan=lifespan)
+app.add_middleware(SecurityHeadersMiddleware)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 session_mgr = SessionManager(
     secret_key=os.getenv("SESSION_SECRET", SESSION_SECRET_DEFAULT),
 )
+
+# Mount admin router
+from gosha.web.admin import router as admin_router  # noqa: E402
+app.include_router(admin_router)
 
 
 # ---------------------------------------------------------------------------
@@ -65,22 +96,37 @@ session_mgr = SessionManager(
 
 @app.get("/login")
 async def login(request: Request):
-    """Redirect to Discord OAuth2."""
-    url = oauth2_login_url()
+    """Redirect to Discord OAuth2 with CSRF state."""
+    url, state = oauth2_login_url()
     if not url:
         return JSONResponse(
             {"error": "Discord OAuth2 not configured. Set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET."},
             status_code=500,
         )
-    return RedirectResponse(url)
+    response = RedirectResponse(url)
+    # Store state in a short-lived cookie for verification in callback
+    response.set_cookie(
+        "oauth_state", state, httponly=True, max_age=300,
+        secure=IS_PRODUCTION, samesite="lax",
+    )
+    return response
 
 
 @app.get("/callback")
-async def callback(request: Request, code: str = Query(...)):
-    """Handle Discord OAuth2 callback."""
+async def callback(
+    request: Request,
+    code: str = Query(...),
+    state: str = Query(""),
+):
+    """Handle Discord OAuth2 callback with CSRF state verification."""
+    # Verify OAuth2 state to prevent CSRF
+    expected_state = request.cookies.get("oauth_state", "")
+    if not expected_state or not state or not hmac.compare_digest(state, expected_state):
+        raise HTTPException(status_code=400, detail="Invalid or missing OAuth2 state")
+
     user_data = await oauth2_callback_handler(code)
     if not user_data:
-        raise HTTPException(status_code=401, detail="OAuth2 failed")
+        raise HTTPException(status_code=401, detail="OAuth2 authentication failed")
 
     discord_id = int(user_data["id"])
     username = user_data.get("username", "Unknown")
@@ -106,14 +152,17 @@ async def callback(request: Request, code: str = Query(...)):
         max_age=86400 * 7,
         secure=IS_PRODUCTION,
         samesite="lax",
+        path="/",
     )
+    # Clean up the OAuth state cookie
+    response.delete_cookie("oauth_state")
     return response
 
 
 @app.get("/logout")
 async def logout():
     response = RedirectResponse("/", status_code=303)
-    response.delete_cookie("session")
+    response.delete_cookie("session", path="/")
     return response
 
 
@@ -317,13 +366,13 @@ async def api_feedback(
             )
         )
         if uj_result.scalar_one_or_none() is None:
-            raise HTTPException(status_code=404, detail="UserJob not found")
+            raise HTTPException(status_code=404)
 
     from gosha.feedback import record_feedback
 
     success = await record_feedback(user_job_id, feedback)
     if not success:
-        raise HTTPException(status_code=404, detail="UserJob not found")
+        raise HTTPException(status_code=500)
     return {"status": "ok", "feedback": feedback}
 
 

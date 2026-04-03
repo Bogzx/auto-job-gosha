@@ -199,10 +199,21 @@ def job_matches_subscription(job: Job, sub: Subscription) -> bool:
         return False
 
     # Location matching — job must match at least one subscription location
+    if not sub.locations:
+        # No location filter → all locations match (user didn't restrict)
+        return True
+
     for loc in sub.locations:
         _search_loc, match_subs = normalize_location(loc)
         if location_matches(job.location, match_subs):
             return True
+
+    # Also include remote jobs when remote_ok is enabled
+    if sub.remote_ok:
+        _, remote_subs = normalize_location("remote")
+        if location_matches(job.location, remote_subs):
+            return True
+
     return False
 
 
@@ -407,17 +418,45 @@ async def _deliver_new(bot: JobBot, since: datetime) -> int:
 
     async with get_session() as session:
         result = await session.execute(
-            select(UserJob, Job, User)
+            select(UserJob, Job, User, Subscription)
             .join(Job, UserJob.job_id == Job.id)
             .join(User, UserJob.user_id == User.id)
+            .outerjoin(Subscription, UserJob.subscription_id == Subscription.id)
             .where(UserJob.delivered_at >= since)
             .order_by(UserJob.delivered_at.asc())
         )
         items = result.all()
 
+    # Deduplicate cross-board: same title+company from different sources
+    # Group by (user_id, normalized_title, normalized_company), keep first
+    seen_per_user: dict[tuple[int, str, str], bool] = {}
+    deduped: list[tuple[UserJob, Job, User, Subscription | None]] = []
+    skipped = 0
+
+    for uj, job, user, sub in items:
+        key = (
+            user.id,
+            (job.title or "").lower().strip(),
+            (job.company or "").lower().strip(),
+        )
+        if key in seen_per_user:
+            skipped += 1
+            continue
+        seen_per_user[key] = True
+        deduped.append((uj, job, user, sub))
+
+    if skipped:
+        log.info("Cross-board dedup: skipped %d duplicate deliveries", skipped)
+
     sent = 0
-    for uj, job, user in items:
-        embed, view = build_job_embed_with_buttons(job, uj.id, uj.relevance_score)
+    for uj, job, user, sub in deduped:
+        # Build match reason from subscription keywords
+        match_info = None
+        if sub:
+            kw_str = ", ".join(sub.keywords[:3])
+            loc_str = ", ".join(sub.locations[:2])
+            match_info = f"{kw_str} in {loc_str}"
+        embed, view = build_job_embed_with_buttons(job, uj.id, uj.relevance_score, match_info)
         success = await _dm_user(bot, user.discord_user_id, embed, view)
         if success:
             sent += 1

@@ -52,7 +52,7 @@ class JobBot(commands.Bot):
             interaction: discord.Interaction, error: app_commands.AppCommandError
         ) -> None:
             log.exception("Slash command error: %s", error)
-            msg = f"Something went wrong: {error}"
+            msg = "Something went wrong. Please try again later."
             try:
                 if interaction.response.is_done():
                     await interaction.followup.send(msg, ephemeral=True)
@@ -69,6 +69,16 @@ class SubscriptionCog(commands.Cog):
         self.bot = bot
 
     # ── helpers ──────────────────────────────────────────────────
+
+    async def _require_admin(self, interaction: discord.Interaction) -> bool:
+        """Check if user is in ADMIN_DISCORD_IDS. Returns False and responds if not."""
+        admin_ids = self.bot.settings.admin_user_ids if self.bot.settings else set()
+        if admin_ids and interaction.user.id not in admin_ids:
+            await interaction.response.send_message(
+                "You don't have permission to use this command.", ephemeral=True,
+            )
+            return False
+        return True
 
     async def _get_or_create_user(self, session: Any, discord_id: int) -> User:
         result = await session.execute(
@@ -160,10 +170,11 @@ class SubscriptionCog(commands.Cog):
         salary_min: int | None = None,
     ) -> None:
         try:
-            keywords = [k.strip() for k in keyword.split(",") if k.strip()]
-            locations = [loc.strip() for loc in location.split(",") if loc.strip()]
-            excluded = [e.strip() for e in exclude.split(",") if e.strip()] if exclude else []
-            exp_levels = [e.strip().lower() for e in experience.split(",") if e.strip()]
+            # Cap individual values to prevent abuse
+            keywords = [k.strip()[:100] for k in keyword.split(",") if k.strip()][:20]
+            locations = [loc.strip()[:100] for loc in location.split(",") if loc.strip()][:20]
+            excluded = [e.strip()[:100] for e in exclude.split(",") if e.strip()][:20] if exclude else []
+            exp_levels = [e.strip().lower()[:20] for e in experience.split(",") if e.strip()][:5]
 
             if not keywords or not locations:
                 await interaction.response.send_message(
@@ -174,11 +185,51 @@ class SubscriptionCog(commands.Cog):
 
             async with get_session() as session:
                 user = await self._get_or_create_user(session, interaction.user.id)
+                limits = user.limits
+
+                # Check subscription limit
+                existing = await session.execute(
+                    select(func.count(Subscription.id)).where(
+                        Subscription.user_id == user.id,
+                    )
+                )
+                current_count = existing.scalar() or 0
+                max_subs = int(limits["max_subscriptions"])
+                if current_count >= max_subs:
+                    tier_name = user.tier.capitalize()
+                    await interaction.response.send_message(
+                        f"You've reached the **{tier_name}** limit of "
+                        f"**{max_subs}** subscriptions. "
+                        f"Remove one with `/unsubscribe` or upgrade your plan.",
+                        ephemeral=True,
+                    )
+                    return
+
+                # Enforce per-sub limits
+                max_kw = int(limits["max_keywords_per_sub"])
+                max_loc = int(limits["max_locations_per_sub"])
+                if len(keywords) > max_kw:
+                    tier_name = user.tier.capitalize()
+                    await interaction.response.send_message(
+                        f"Too many keywords ({len(keywords)}). **{tier_name}** plan allows "
+                        f"**{max_kw}** per subscription. Use `/upgrade` for more.",
+                        ephemeral=True,
+                    )
+                    return
+                if len(locations) > max_loc:
+                    tier_name = user.tier.capitalize()
+                    await interaction.response.send_message(
+                        f"Too many locations ({len(locations)}). **{tier_name}** plan allows "
+                        f"**{max_loc}** per subscription. Use `/upgrade` for more.",
+                        ephemeral=True,
+                    )
+                    return
 
                 sub = Subscription(
                     user_id=user.id,
                     max_age_days=max_age_days,
                     salary_min=salary_min,
+                    remote_ok=True,
                 )
                 sub.keywords = keywords
                 sub.locations = locations
@@ -230,7 +281,7 @@ class SubscriptionCog(commands.Cog):
                 await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as exc:
             log.exception("Error in /subscribe")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
@@ -287,7 +338,7 @@ class SubscriptionCog(commands.Cog):
                 )
         except Exception as exc:
             log.exception("Error in /unsubscribe")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
@@ -339,22 +390,22 @@ class SubscriptionCog(commands.Cog):
 
                 changes = []
                 if keyword:
-                    sub.keywords = [k.strip() for k in keyword.split(",") if k.strip()]
+                    sub.keywords = [k.strip()[:100] for k in keyword.split(",") if k.strip()][:20]
                     changes.append(f"keywords={sub.keywords}")
                 if location:
-                    sub.locations = [loc.strip() for loc in location.split(",") if loc.strip()]
+                    sub.locations = [loc.strip()[:100] for loc in location.split(",") if loc.strip()][:20]
                     changes.append(f"locations={sub.locations}")
                 if max_age_days > 0:
                     sub.max_age_days = max_age_days
                     changes.append(f"max_age_days={max_age_days}")
                 if experience:
-                    sub.experience_levels = [e.strip().lower() for e in experience.split(",") if e.strip()]
+                    sub.experience_levels = [e.strip().lower()[:20] for e in experience.split(",") if e.strip()][:5]
                     changes.append(f"experience={sub.experience_levels}")
                 if exclude:
-                    sub.excluded_keywords = [e.strip() for e in exclude.split(",") if e.strip()]
+                    sub.excluded_keywords = [e.strip()[:100] for e in exclude.split(",") if e.strip()][:20]
                     changes.append(f"excluded={sub.excluded_keywords}")
                 if blacklist:
-                    sub.company_blacklist = [b.strip() for b in blacklist.split(",") if b.strip()]
+                    sub.company_blacklist = [b.strip()[:100] for b in blacklist.split(",") if b.strip()][:20]
                     changes.append(f"blacklist={sub.company_blacklist}")
                 if salary_min == 0:
                     sub.salary_min = None
@@ -376,7 +427,7 @@ class SubscriptionCog(commands.Cog):
                 )
         except Exception as exc:
             log.exception("Error in /edit")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
@@ -433,7 +484,7 @@ class SubscriptionCog(commands.Cog):
                 )
         except Exception as exc:
             log.exception("Error in /pause or /resume")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
@@ -480,22 +531,24 @@ class SubscriptionCog(commands.Cog):
                     line += f"\n  {' | '.join(extras)}"
                 lines.append(line)
 
+            desc_text = "\n".join(lines)
+            if len(desc_text) > 4000:
+                desc_text = desc_text[:4000] + "\n\n*... truncated*"
             embed = discord.Embed(
                 title="Your Job Subscriptions",
-                description="\n".join(lines),
+                description=desc_text,
                 color=discord.Color.blurple(),
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as exc:
             log.exception("Error in /my_searches")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /scrape_now ─────────────────────────────────────────────
 
     _scrape_cooldown: dict[int, float] = {}  # discord_user_id -> last invocation timestamp
-    SCRAPE_COOLDOWN_SECONDS = 300  # 5 minutes between manual scrapes
 
     @app_commands.command(
         name="scrape_now", description="Force an immediate scrape cycle"
@@ -504,17 +557,35 @@ class SubscriptionCog(commands.Cog):
         from gosha.pipeline import run_scrape_cycle
 
         try:
+            if not await self._require_admin(interaction):
+                return
+
             if self.bot.tunnel_manager is None:
                 await interaction.response.send_message(
                     "Bot not fully initialised yet.", ephemeral=True
                 )
                 return
 
-            # Rate limiting
+            # Tier-based rate limiting
+            async with get_session() as session:
+                user_result = await session.execute(
+                    select(User).where(User.discord_user_id == interaction.user.id)
+                )
+                user = user_result.scalar_one_or_none()
+            cooldown_secs = int((user.limits if user else {}).get("scrape_now_cooldown", 600))
+
             now = time.monotonic()
             uid = interaction.user.id
+
+            # Periodically clean up stale cooldown entries (older than 1 hour)
+            if len(self._scrape_cooldown) > 50:
+                cutoff = now - 3600
+                self._scrape_cooldown = {
+                    k: v for k, v in self._scrape_cooldown.items() if v > cutoff
+                }
+
             last_used = self._scrape_cooldown.get(uid, 0.0)
-            remaining = self.SCRAPE_COOLDOWN_SECONDS - (now - last_used)
+            remaining = cooldown_secs - (now - last_used)
             if remaining > 0:
                 await interaction.response.send_message(
                     f"Cooldown active — try again in {int(remaining)}s.",
@@ -549,13 +620,13 @@ class SubscriptionCog(commands.Cog):
                 except Exception as exc:
                     log.exception("Scrape cycle failed")
                     await interaction.followup.send(
-                        f"Scrape failed: {exc}", ephemeral=True
+                        "Scrape failed. Check bot logs for details.", ephemeral=True
                     )
 
             asyncio.create_task(_run_and_notify())
         except Exception as exc:
             log.exception("Error in /scrape_now")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
@@ -622,7 +693,7 @@ class SubscriptionCog(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as exc:
             log.exception("Error in /stats")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
@@ -633,6 +704,9 @@ class SubscriptionCog(commands.Cog):
     )
     async def status(self, interaction: discord.Interaction) -> None:
         try:
+            if not await self._require_admin(interaction):
+                return
+
             # Uptime
             uptime_secs = int(time.monotonic() - self.bot._started_at)
             hours, remainder = divmod(uptime_secs, 3600)
@@ -685,7 +759,7 @@ class SubscriptionCog(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as exc:
             log.exception("Error in /status")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
@@ -724,6 +798,7 @@ class SubscriptionCog(commands.Cog):
                 sub = Subscription(
                     user_id=user.id,
                     max_age_days=14,
+                    remote_ok=True,
                 )
                 sub.keywords = ["computer science internship"]
                 sub.locations = [location.strip()]
@@ -764,7 +839,7 @@ class SubscriptionCog(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as exc:
             log.exception("Error in /quickstart")
-            msg = f"Error: {exc}"
+            msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
                 await interaction.response.send_message(msg, ephemeral=True)
 
@@ -773,6 +848,72 @@ class SubscriptionCog(commands.Cog):
         self, interaction: discord.Interaction, current: str,
     ) -> list[app_commands.Choice[str]]:
         return await self._location_autocomplete(interaction, current)
+
+    # ── /upgrade ───────────────────────────────────────────────
+
+    @app_commands.command(
+        name="upgrade",
+        description="See your current plan and what Pro offers",
+    )
+    async def upgrade(self, interaction: discord.Interaction) -> None:
+        try:
+            async with get_session() as session:
+                user = (await session.execute(
+                    select(User).where(User.discord_user_id == interaction.user.id)
+                )).scalar_one_or_none()
+
+            tier = user.tier if user else "free"
+            limits = user.limits if user else User().limits
+
+            if tier == "free":
+                embed = discord.Embed(
+                    title="GOSHA Free vs Pro",
+                    description="You're on the **Free** plan.",
+                    color=discord.Color.gold(),
+                )
+                embed.add_field(
+                    name="Free (current)",
+                    value=(
+                        f"- {limits['max_subscriptions']} subscriptions\n"
+                        f"- {limits['max_applications']} tracked applications\n"
+                        f"- Basic keyword matching\n"
+                        f"- Indeed + LinkedIn + Glassdoor"
+                    ),
+                    inline=True,
+                )
+                embed.add_field(
+                    name="Pro",
+                    value=(
+                        "- **15** subscriptions\n"
+                        "- **Unlimited** application tracking\n"
+                        "- **AI semantic matching** (smarter results)\n"
+                        "- **Priority delivery** (get jobs first)\n"
+                        "- **Email digests**\n"
+                        "- **2 min** scrape cooldown"
+                    ),
+                    inline=True,
+                )
+                embed.set_footer(text="Contact the bot admin to upgrade.")
+            else:
+                embed = discord.Embed(
+                    title=f"Your Plan: {tier.capitalize()}",
+                    description=(
+                        f"**Subscriptions:** {limits['max_subscriptions']}\n"
+                        f"**Applications:** {'Unlimited' if int(limits['max_applications']) > 100 else limits['max_applications']}\n"
+                        f"**Semantic matching:** {'Yes' if limits['semantic_matching'] else 'No'}\n"
+                        f"**Priority delivery:** {'Yes' if limits['priority_delivery'] else 'No'}\n"
+                        f"**Email delivery:** {'Yes' if limits['email_delivery'] else 'No'}\n"
+                        f"**Scrape cooldown:** {int(limits['scrape_now_cooldown']) // 60} min"
+                    ),
+                    color=discord.Color.green(),
+                )
+
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as exc:
+            log.exception("Error in /upgrade")
+            msg = "Something went wrong. Please try again later."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /help ──────────────────────────────────────────────────
 
@@ -833,8 +974,18 @@ class SubscriptionCog(commands.Cog):
             inline=True,
         )
         embed.add_field(
-            name="/show_keywords keyword",
-            value="See the exact job titles a smart keyword searches for.",
+            name="/apply job_id  &  /applications",
+            value="Track where you've applied and your pipeline status.",
+            inline=True,
+        )
+        embed.add_field(
+            name="/upload_cv  &  /cover_letter job_id",
+            value="Upload your CV once, then generate AI cover letters for any job.",
+            inline=True,
+        )
+        embed.add_field(
+            name="/show_keywords  &  /upgrade",
+            value="See keyword expansions or compare Free vs Pro.",
             inline=True,
         )
         embed.set_footer(
@@ -889,3 +1040,494 @@ class SubscriptionCog(commands.Cog):
         self, interaction: discord.Interaction, current: str,
     ) -> list[app_commands.Choice[str]]:
         return await self._keyword_autocomplete(interaction, current)
+
+    # ── /apply ─────────────────────────────────────────────────
+
+    @app_commands.command(
+        name="apply",
+        description="Track a job application (mark a delivered job as 'applied')",
+    )
+    @app_commands.describe(
+        job_id="The job ID from a job notification (shown in the embed footer)",
+        notes="Optional notes (e.g. 'applied via company website')",
+    )
+    async def apply(
+        self,
+        interaction: discord.Interaction,
+        job_id: int,
+        notes: str = "",
+    ) -> None:
+        from gosha.models import Application, Job
+
+        try:
+            async with get_session() as session:
+                user = (await session.execute(
+                    select(User).where(User.discord_user_id == interaction.user.id)
+                )).scalar_one_or_none()
+                if not user:
+                    await interaction.response.send_message(
+                        "Subscribe first with `/quickstart` or `/subscribe`.",
+                        ephemeral=True,
+                    )
+                    return
+
+                # Verify job exists
+                job = (await session.execute(
+                    select(Job).where(Job.id == job_id)
+                )).scalar_one_or_none()
+                if not job:
+                    await interaction.response.send_message(
+                        f"Job #{job_id} not found.", ephemeral=True,
+                    )
+                    return
+
+                # Check for duplicate
+                existing = (await session.execute(
+                    select(Application).where(
+                        Application.user_id == user.id,
+                        Application.job_id == job_id,
+                    )
+                )).scalar_one_or_none()
+                if existing:
+                    await interaction.response.send_message(
+                        f"You already tracked this job (status: **{existing.status}**). "
+                        f"Use `/update_application` to change the status.",
+                        ephemeral=True,
+                    )
+                    return
+
+                app = Application(
+                    user_id=user.id,
+                    job_id=job_id,
+                    status="applied",
+                    notes=notes or None,
+                )
+                session.add(app)
+                await session.commit()
+
+            embed = discord.Embed(
+                title="Application tracked!",
+                description=(
+                    f"**{job.title}** at **{job.company}**\n"
+                    f"Status: Applied\n"
+                    + (f"Notes: {notes}" if notes else "")
+                ),
+                color=discord.Color.green(),
+            )
+            embed.set_footer(text="Use /applications to see all your tracked applications")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as exc:
+            log.exception("Error in /apply")
+            msg = "Something went wrong. Please try again later."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+
+    # ── /update_application ────────────────────────────────────
+
+    @app_commands.command(
+        name="update_application",
+        description="Update the status of a tracked application",
+    )
+    @app_commands.describe(
+        job_id="The job ID to update",
+        status="New status",
+        notes="Optional notes (e.g. 'interview scheduled for Monday')",
+    )
+    @app_commands.choices(status=[
+        app_commands.Choice(name="Applied", value="applied"),
+        app_commands.Choice(name="Phone Screen", value="phone_screen"),
+        app_commands.Choice(name="Interview", value="interview"),
+        app_commands.Choice(name="Offer!", value="offer"),
+        app_commands.Choice(name="Rejected", value="rejected"),
+        app_commands.Choice(name="Withdrawn", value="withdrawn"),
+    ])
+    async def update_application(
+        self,
+        interaction: discord.Interaction,
+        job_id: int,
+        status: str,
+        notes: str = "",
+    ) -> None:
+        from gosha.models import Application, Job, _utcnow
+
+        try:
+            async with get_session() as session:
+                user = (await session.execute(
+                    select(User).where(User.discord_user_id == interaction.user.id)
+                )).scalar_one_or_none()
+                if not user:
+                    await interaction.response.send_message(
+                        "No applications found.", ephemeral=True,
+                    )
+                    return
+
+                app = (await session.execute(
+                    select(Application).where(
+                        Application.user_id == user.id,
+                        Application.job_id == job_id,
+                    )
+                )).scalar_one_or_none()
+                if not app:
+                    await interaction.response.send_message(
+                        f"No application found for job #{job_id}. Use `/apply` first.",
+                        ephemeral=True,
+                    )
+                    return
+
+                old_status = app.status
+                app.status = status
+                app.updated_at = _utcnow()
+                if notes:
+                    app.notes = notes
+                await session.commit()
+
+                # Get job details for display
+                job = (await session.execute(
+                    select(Job).where(Job.id == job_id)
+                )).scalar_one_or_none()
+                title = job.title if job else f"Job #{job_id}"
+                company = job.company if job else "Unknown"
+
+            status_emoji = {
+                "applied": ">>", "phone_screen": ">>",
+                "interview": ">>", "offer": ">>",
+                "rejected": ">>", "withdrawn": ">>",
+            }.get(status, ">>")
+
+            await interaction.response.send_message(
+                f"{status_emoji} **{title}** at **{company}**: "
+                f"{old_status} -> **{status}**"
+                + (f"\nNotes: {notes}" if notes else ""),
+                ephemeral=True,
+            )
+        except Exception as exc:
+            log.exception("Error in /update_application")
+            msg = "Something went wrong. Please try again later."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+
+    # ── /applications ──────────────────────────────────────────
+
+    @app_commands.command(
+        name="applications",
+        description="View all your tracked job applications",
+    )
+    async def applications(self, interaction: discord.Interaction) -> None:
+        from gosha.models import Application, Job
+
+        try:
+            async with get_session() as session:
+                user = (await session.execute(
+                    select(User).where(User.discord_user_id == interaction.user.id)
+                )).scalar_one_or_none()
+                if not user:
+                    await interaction.response.send_message(
+                        "No applications yet. Use `/apply` after receiving a job!",
+                        ephemeral=True,
+                    )
+                    return
+
+                result = await session.execute(
+                    select(Application, Job)
+                    .join(Job, Application.job_id == Job.id)
+                    .where(Application.user_id == user.id)
+                    .order_by(Application.updated_at.desc())
+                    .limit(25)
+                )
+                items = result.all()
+
+            if not items:
+                await interaction.response.send_message(
+                    "No applications yet. When you get a job DM, use `/apply <job_id>` to start tracking!",
+                    ephemeral=True,
+                )
+                return
+
+            # Group by status
+            by_status: dict[str, list[str]] = {}
+            for app, job in items:
+                line = f"**{job.title}** at {job.company} (#{job.id})"
+                if app.notes:
+                    line += f"\n  _{app.notes}_"
+                by_status.setdefault(app.status, []).append(line)
+
+            status_order = ["interview", "phone_screen", "applied", "offer", "rejected", "withdrawn"]
+            status_labels = {
+                "applied": "Applied",
+                "phone_screen": "Phone Screen",
+                "interview": "Interviewing",
+                "offer": "Offers",
+                "rejected": "Rejected",
+                "withdrawn": "Withdrawn",
+            }
+
+            description_parts = []
+            for s in status_order:
+                if s in by_status:
+                    label = status_labels.get(s, s)
+                    entries = "\n".join(by_status[s])
+                    description_parts.append(f"**{label}** ({len(by_status[s])})\n{entries}")
+
+            desc_text = "\n\n".join(description_parts)
+            if len(desc_text) > 4000:
+                desc_text = desc_text[:4000] + "\n\n*... truncated. Use /update_application to see details.*"
+            embed = discord.Embed(
+                title=f"Your Applications ({len(items)})",
+                description=desc_text,
+                color=discord.Color.blue(),
+            )
+            embed.set_footer(text="Use /update_application <job_id> to change a status")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as exc:
+            log.exception("Error in /applications")
+            msg = "Something went wrong. Please try again later."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+
+    # ── /upload_cv ─────────────────────────────────────────────
+
+    @app_commands.command(
+        name="upload_cv",
+        description="Upload your CV (PDF, DOCX, or TXT) — used for AI cover letter generation",
+    )
+    @app_commands.describe(
+        file="Your CV file (PDF, DOCX, or TXT — max 5 MB)",
+    )
+    async def upload_cv(
+        self, interaction: discord.Interaction, file: discord.Attachment,
+    ) -> None:
+        from gosha.cover_letter import extract_text_from_attachment, save_cv
+
+        try:
+            # Validate file
+            max_size = 5 * 1024 * 1024  # 5 MB
+            if file.size > max_size:
+                await interaction.response.send_message(
+                    "File too large (max 5 MB).", ephemeral=True,
+                )
+                return
+
+            allowed = (".pdf", ".txt", ".md", ".docx")
+            if not any(file.filename.lower().endswith(ext) for ext in allowed):
+                await interaction.response.send_message(
+                    f"Unsupported file type. Please upload a PDF, DOCX, or TXT file.",
+                    ephemeral=True,
+                )
+                return
+
+            await interaction.response.defer(ephemeral=True)
+
+            # Extract text
+            text = await extract_text_from_attachment(file)
+            if not text or len(text.strip()) < 50:
+                await interaction.followup.send(
+                    "Could not extract enough text from your file. "
+                    "Try uploading a .txt or .pdf with selectable text.",
+                    ephemeral=True,
+                )
+                return
+
+            # Get or create user
+            async with get_session() as session:
+                user = await self._get_or_create_user(session, interaction.user.id)
+                await session.commit()
+
+            save_cv(user.id, text)
+            word_count = len(text.split())
+
+            await interaction.followup.send(
+                f"CV uploaded! ({word_count} words extracted from `{file.filename}`)\n\n"
+                f"You can now use `/cover_letter <job_id>` to generate tailored cover letters.\n"
+                f"Use `/my_cv` to preview or delete your stored CV.",
+                ephemeral=True,
+            )
+        except Exception as exc:
+            log.exception("Error in /upload_cv")
+            msg = "Something went wrong. Please try again later."
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)
+
+    # ── /my_cv ─────────────────────────────────────────────────
+
+    @app_commands.command(
+        name="my_cv",
+        description="Preview or delete your stored CV",
+    )
+    async def my_cv(self, interaction: discord.Interaction) -> None:
+        from gosha.cover_letter import delete_cv, get_monthly_usage, load_cv
+
+        try:
+            async with get_session() as session:
+                user = (await session.execute(
+                    select(User).where(User.discord_user_id == interaction.user.id)
+                )).scalar_one_or_none()
+
+            if not user:
+                await interaction.response.send_message(
+                    "No CV uploaded yet. Use `/upload_cv` to get started.",
+                    ephemeral=True,
+                )
+                return
+
+            cv_text = load_cv(user.id)
+            if not cv_text:
+                await interaction.response.send_message(
+                    "No CV uploaded yet. Use `/upload_cv` to get started.",
+                    ephemeral=True,
+                )
+                return
+
+            usage = await get_monthly_usage(user.id)
+            limit = int(user.limits.get("cover_letters_per_month", 3))
+            word_count = len(cv_text.split())
+
+            # Show preview (first 500 chars, escape backticks for Discord)
+            preview = cv_text[:500].replace("`", "'")
+            if len(cv_text) > 500:
+                preview += "..."
+
+            embed = discord.Embed(
+                title="Your Stored CV",
+                description=f"```\n{preview}\n```",
+                color=discord.Color.blue(),
+            )
+            embed.add_field(name="Words", value=str(word_count), inline=True)
+            embed.add_field(
+                name="Cover Letters This Month",
+                value=f"{usage}/{limit}" if limit < 100 else f"{usage} (unlimited)",
+                inline=True,
+            )
+            embed.set_footer(text="Use /upload_cv to replace, or /delete_cv to remove.")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        except Exception as exc:
+            log.exception("Error in /my_cv")
+            msg = "Something went wrong. Please try again later."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+
+    # ── /delete_cv ─────────────────────────────────────────────
+
+    @app_commands.command(
+        name="delete_cv",
+        description="Delete your stored CV",
+    )
+    async def delete_cv_cmd(self, interaction: discord.Interaction) -> None:
+        from gosha.cover_letter import delete_cv
+
+        try:
+            async with get_session() as session:
+                user = (await session.execute(
+                    select(User).where(User.discord_user_id == interaction.user.id)
+                )).scalar_one_or_none()
+
+            if user and delete_cv(user.id):
+                await interaction.response.send_message(
+                    "CV deleted.", ephemeral=True,
+                )
+            else:
+                await interaction.response.send_message(
+                    "No CV found to delete.", ephemeral=True,
+                )
+        except Exception as exc:
+            log.exception("Error in /delete_cv")
+            msg = "Something went wrong. Please try again later."
+            if not interaction.response.is_done():
+                await interaction.response.send_message(msg, ephemeral=True)
+
+    # ── /cover_letter ──────────────────────────────────────────
+
+    @app_commands.command(
+        name="cover_letter",
+        description="Generate an AI cover letter for a specific job using your CV",
+    )
+    @app_commands.describe(
+        job_id="The job ID (shown in job notification embeds)",
+    )
+    async def cover_letter(
+        self, interaction: discord.Interaction, job_id: int,
+    ) -> None:
+        from gosha.cover_letter import (
+            generate_cover_letter,
+            get_monthly_usage,
+            load_cv,
+        )
+        from gosha.models import Job
+
+        try:
+            async with get_session() as session:
+                user = (await session.execute(
+                    select(User).where(User.discord_user_id == interaction.user.id)
+                )).scalar_one_or_none()
+
+            if not user:
+                await interaction.response.send_message(
+                    "Use `/quickstart` or `/subscribe` first.", ephemeral=True,
+                )
+                return
+
+            # Check CV exists
+            if not load_cv(user.id):
+                await interaction.response.send_message(
+                    "Upload your CV first with `/upload_cv`.", ephemeral=True,
+                )
+                return
+
+            # Check monthly limit
+            usage = await get_monthly_usage(user.id)
+            limit = int(user.limits.get("cover_letters_per_month", 3))
+            if usage >= limit:
+                await interaction.response.send_message(
+                    f"You've used all **{limit}** cover letters this month.\n"
+                    f"Use `/upgrade` to see Pro benefits (unlimited cover letters).",
+                    ephemeral=True,
+                )
+                return
+
+            # Verify job exists
+            async with get_session() as session:
+                job = (await session.execute(
+                    select(Job).where(Job.id == job_id)
+                )).scalar_one_or_none()
+            if not job:
+                await interaction.response.send_message(
+                    f"Job #{job_id} not found.", ephemeral=True,
+                )
+                return
+
+            await interaction.response.defer(ephemeral=True)
+
+            # Generate
+            content, was_cached = await generate_cover_letter(user.id, job_id)
+            if not content:
+                await interaction.followup.send(
+                    "Cover letter generation failed. Make sure your CV is uploaded (`/upload_cv`) "
+                    "and try again later.",
+                    ephemeral=True,
+                )
+                return
+
+            used = 0 if was_cached else 1
+            remaining = limit - usage - used if limit < 100 else None
+
+            embed = discord.Embed(
+                title=f"Cover Letter — {job.title} at {job.company}",
+                description=content,
+                color=discord.Color.purple(),
+            )
+            footer_parts = [f"Job #{job_id}"]
+            if was_cached:
+                footer_parts.append("cached")
+            if remaining is not None:
+                footer_parts.append(f"{remaining} left this month")
+            embed.set_footer(text=" | ".join(footer_parts))
+
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        except Exception as exc:
+            log.exception("Error in /cover_letter")
+            msg = "Something went wrong. Please try again later."
+            if interaction.response.is_done():
+                await interaction.followup.send(msg, ephemeral=True)
+            else:
+                await interaction.response.send_message(msg, ephemeral=True)

@@ -1,111 +1,131 @@
-# 🤖 JobHunter Bot — How to Use
+# GOSHA — How to Use
 
-JobHunter automatically scrapes **Indeed**, **LinkedIn**, and **Glassdoor** every hour and sends you matching jobs via DM!
+GOSHA automatically scrapes **Indeed**, **LinkedIn**, and **Glassdoor** every hour and sends you matching jobs via DM!
 
 ---
 
-## 🚀 Getting Started
+## Quick Start (Fastest Way)
 
-### Step 1: Subscribe
-Use the `/subscribe` command to set up a job search.
+```
+/quickstart location: cluj
+```
+
+That's it! This creates a subscription for **20 CS internship/junior job titles** in your chosen city. You'll start receiving matching jobs via DM.
+
+---
+
+## Custom Subscriptions
+
+### `/subscribe` — Create a Search
 
 ```
 /subscribe keyword: computer science internship location: cluj
 ```
 
-You'll get a confirmation like:
-> ✅ Subscribed! **#1** — `computer science internship` in `cluj` (last 7d)
+You'll get a confirmation showing exactly what will be searched.
 
-### Step 2: Wait for Results
-The bot scrapes every hour. New jobs matching your search will be sent to your **DMs** automatically.
+**Options you can add:**
 
-### Step 3: Manage Your Searches
-- `/my_searches` — View all your active subscriptions
-- `/unsubscribe id: 1` — Remove a subscription by its ID
-- `/scrape_now` — Force an immediate scrape (don't spam this!)
+| Option | Description | Example |
+|--------|-------------|---------|
+| `experience` | Filter by level (dropdown) | `Intern / Internship` |
+| `max_age_days` | How far back to look (default 7) | `14` |
+| `exclude` | Remove jobs containing these words | `sales, marketing` |
+| `salary_min` | Minimum annual salary | `30000` |
 
----
+### Smart Keywords
 
-## ⭐ Recommended Keywords
+When you pick a smart keyword, the bot searches **many specific job titles** at once:
 
-### 🎯 `computer science internship` (Best for students!)
-This is the **most powerful keyword**. It automatically searches for **20 different job titles** at once:
-
-> software engineer intern, software developer intern, web developer intern, data scientist intern, data analyst intern, data engineer intern, machine learning intern, AI intern, backend developer intern, frontend developer intern, full stack intern, devops intern, cloud engineer intern, cybersecurity intern, IT intern, QA intern, computer science intern, junior developer, graduate software engineer, internship
-
-**One subscription covers everything.** You don't need to subscribe 20 times — just use `computer science internship` and the bot handles the rest.
-
-### Other Smart Keywords
-
-| Keyword | What it searches | Best for |
-|---------|-----------------|----------|
-| `computer science internship` | 20 intern/junior tech roles | 🎓 CS students looking for internships |
+| Keyword | Titles Searched | Best For |
+|---------|----------------|----------|
+| `computer science internship` | 20 intern/junior tech roles | CS students looking for internships |
 | `computer science` | 18 general tech roles (all levels) | Broad tech job search |
-| `cs entry level` | 11 junior/entry/graduate/trainee roles | Recent graduates |
+| `cs entry level` | 11 junior/graduate/trainee roles | Recent graduates |
 | `tech internship` | 9 tech + product + UX intern roles | Broader tech internships |
 | `data science` | 8 data/ML/AI roles | Data-focused careers |
 | `software engineering` | 9 dev roles (frontend, backend, etc.) | Software dev jobs |
 
-### Using Your Own Keywords
-You can also type any custom keyword — it will be searched as-is on job boards:
+Use `/show_keywords computer science internship` to see the full list of titles.
+
+You can also type **any custom keyword** — it will be searched as-is on job boards.
+
+---
+
+## Supported Locations
+
+Start typing in the location field and you'll see suggestions. Supported shortcuts:
+
+### Romania
+`cluj` · `bucharest` / `bucuresti` · `timisoara` · `iasi` · `brasov` · `sibiu` · `craiova` · `constanta` · `oradea` · `romania` (all cities)
+
+### Europe
+`dublin` · `london` · `berlin` · `amsterdam` · `prague` · `warsaw` · `budapest` · `krakow` · `vienna` · `munich` · `paris` · `barcelona` · `zurich`
+
+### Remote
+`remote` — matches jobs listed as remote, work-from-home, or anywhere.
+
+You can also type any city/country not on this list.
+
+---
+
+## Managing Subscriptions
+
+| Command | What it does |
+|---------|-------------|
+| `/my_searches` | View all your subscriptions |
+| `/edit id:1 keyword:new terms` | Modify a subscription |
+| `/unsubscribe id:1` | Delete a subscription |
+| `/pause id:1` | Temporarily stop receiving jobs |
+| `/resume id:1` | Resume a paused subscription |
+
+---
+
+## Other Commands
+
+| Command | What it does |
+|---------|-------------|
+| `/scrape_now` | Force an immediate scrape (cooldown applies) |
+| `/stats` | See your delivery statistics |
+| `/status` | Check bot health and uptime |
+| `/show_keywords keyword` | See what job titles a smart keyword expands to |
+| `/help` | Show all commands in Discord |
+
+---
+
+## Tips
+
+1. **Start with `/quickstart`** — it's the fastest way to get going
+2. **Use smart keywords** — one `computer science internship` subscription covers 20 job titles
+3. **Enable DMs** from server members so the bot can message you (Server Settings > Privacy)
+4. **Use the buttons** — click "Interested" or "Not Relevant" on job DMs to train the bot
+5. **Click "Apply"** — each job DM has an Apply button that takes you straight to the posting
+6. **Add exclusions** — if you keep getting irrelevant jobs, use `/edit` to add excluded keywords
+
+---
+
+## Example Setup for a CS Student in Romania
+
 ```
-/subscribe keyword: react developer location: london
+/quickstart location: romania
+```
+
+Or for more control:
+
+```
+/subscribe keyword: computer science internship location: cluj, bucharest experience: Intern / Internship max_age_days: 14
+/subscribe keyword: data science location: remote experience: Junior / Entry Level
 ```
 
 ---
 
-## 📍 Supported Locations
+## Free vs Pro
 
-You can type locations casually — the bot understands shortcuts:
-
-| You type | Bot searches |
-|----------|-------------|
-| `cluj` | Cluj-Napoca, Romania |
-| `bucharest` or `bucuresti` | Bucharest, Romania |
-| `timisoara` | Timisoara, Romania |
-| `iasi` | Iasi, Romania |
-| `brasov` | Brasov, Romania |
-| `sibiu` | Sibiu, Romania |
-| `craiova` | Craiova, Romania |
-| `constanta` | Constanta, Romania |
-| `oradea` | Oradea, Romania |
-| `dublin` | Dublin, Ireland |
-| `london` | London, United Kingdom |
-| `berlin` | Berlin, Germany |
-| `amsterdam` | Amsterdam, Netherlands |
-| `romania` | All of Romania |
-
-You can also type any city/country not on this list and it will be searched as-is.
-
----
-
-## 📅 Max Age
-
-The `max_age_days` option controls how far back to look (default: **7 days**).
-
-```
-/subscribe keyword: computer science internship location: dublin max_age_days: 14
-```
-This searches for jobs posted in the last 2 weeks.
-
----
-
-## 💡 Tips
-
-1. **Start with `computer science internship`** — it's the best all-in-one keyword for CS students
-2. **Add multiple locations** — create one subscription per city you're interested in
-3. **Enable DMs** from server members so the bot can message you (Server Settings → Privacy)
-4. **Don't duplicate** — one `computer science internship` subscription covers intern + junior + graduate roles automatically
-5. **Results are filtered** — the bot removes senior/lead roles and non-tech jobs, so you only see relevant stuff
-
----
-
-## 📋 Example Setup for a CS Student
-
-```
-/subscribe keyword: computer science internship location: cluj max_age_days: 14
-/subscribe keyword: computer science internship location: dublin max_age_days: 14
-/subscribe keyword: cs entry level location: bucharest max_age_days: 7
-```
-
-This gives you full coverage across 3 cities with one command each. 🎉
+| Feature | Free | Pro |
+|---------|------|-----|
+| Subscriptions | 2 | 10 |
+| Keywords per subscription | 3 | 10 |
+| Locations per subscription | 2 | 10 |
+| Scrape-now cooldown | 10 min | 2 min |
+| Semantic matching | No | Yes |
+| Email delivery | No | Yes |

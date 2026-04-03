@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -29,6 +30,20 @@ async def init_db(database_url: str) -> AsyncEngine:
     global _engine, _session_factory
 
     _engine = create_async_engine(database_url, echo=False)
+
+    # Enable WAL mode for safe concurrent access from bot + web
+    if "sqlite" in database_url:
+
+        @event.listens_for(_engine.sync_engine, "connect")
+        def _set_sqlite_pragma(dbapi_conn, connection_record):
+            try:
+                cursor = dbapi_conn.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                cursor.execute("PRAGMA busy_timeout=5000")
+                cursor.close()
+            except Exception as exc:
+                log.warning("Failed to set SQLite PRAGMAs: %s", exc)
     _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
 
     async with _engine.begin() as conn:
