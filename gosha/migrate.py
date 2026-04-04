@@ -28,15 +28,44 @@ async def run_migrations(conn: AsyncConnection) -> None:
 
     log.info("Existing tables: %s", existing_tables)
 
-    # 1. Migrate subscriptions if old schema detected
+    # 1. Add missing columns to existing tables
+    if "users" in existing_tables:
+        await _add_missing_columns(conn, "users", {
+            "tier": "VARCHAR(32) NOT NULL DEFAULT 'free'",
+        })
+
+    if "subscriptions" in existing_tables:
+        await _add_missing_columns(conn, "subscriptions", {
+            "remote_ok": "BOOLEAN NOT NULL DEFAULT 0",
+        })
+
+    # 2. Migrate subscriptions if old schema detected
     if "subscriptions" in existing_tables:
         await _migrate_subscriptions(conn, inspector)
 
-    # 2. Migrate seen_jobs → user_jobs
+    # 3. Migrate seen_jobs → user_jobs
     if "seen_jobs" in existing_tables:
         await _migrate_seen_jobs(conn, existing_tables)
 
     log.info("Migration complete.")
+
+
+async def _add_missing_columns(
+    conn: AsyncConnection, table: str, columns: dict[str, str],
+) -> None:
+    """Add columns to a table if they don't already exist."""
+    existing = await conn.run_sync(
+        lambda sync_conn: [c["name"] for c in inspect(sync_conn).get_columns(table)]
+    )
+    for col_name, col_type in columns.items():
+        if col_name not in existing:
+            try:
+                await conn.execute(text(
+                    f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"
+                ))
+                log.info("Added column %s.%s", table, col_name)
+            except Exception as e:
+                log.debug("Column %s.%s may already exist: %s", table, col_name, e)
 
 
 async def _migrate_subscriptions(conn: AsyncConnection, inspector) -> None:
