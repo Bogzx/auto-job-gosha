@@ -43,7 +43,7 @@ class Settings:
 
     # Matching
     use_semantic_matching: bool = False
-    semantic_model: str = "all-MiniLM-L6-v2"
+    semantic_model: str = "all-mpnet-base-v2"
     semantic_threshold: float = 0.40
 
     # Admin user IDs (can run /scrape_now, /status)
@@ -122,7 +122,7 @@ def load_settings() -> Settings:
     alert_channel = int(os.getenv("ALERT_CHANNEL_ID", "0"))
     interval = int(os.getenv("SCRAPE_INTERVAL_MINUTES", "60"))
     use_semantic = os.getenv("USE_SEMANTIC_MATCHING", "false").lower() == "true"
-    semantic_model = os.getenv("SEMANTIC_MODEL", "all-MiniLM-L6-v2")
+    semantic_model = os.getenv("SEMANTIC_MODEL", "all-mpnet-base-v2")
     semantic_threshold = float(os.getenv("SEMANTIC_THRESHOLD", "0.40"))
 
     return Settings(

@@ -356,7 +356,7 @@ async def run_scrape_cycle(
     tunnel_manager: SSHTunnelManager,
     alert_channel_id: int,
     use_semantic: bool = False,
-    semantic_model: str = "all-MiniLM-L6-v2",
+    semantic_model: str = "all-mpnet-base-v2",
     semantic_threshold: float = 0.40,
 ) -> int:
     """Execute one full scrape -> match -> deliver cycle.

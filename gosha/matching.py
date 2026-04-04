@@ -18,7 +18,7 @@ _model: Any = None
 _model_name: str = ""
 
 
-def _get_model(model_name: str = "all-MiniLM-L6-v2") -> Any:
+def _get_model(model_name: str = "all-mpnet-base-v2") -> Any:
     """Load the sentence-transformer model (lazy singleton)."""
     global _model, _model_name
     if _model is not None and _model_name == model_name:
@@ -38,12 +38,12 @@ def _get_model(model_name: str = "all-MiniLM-L6-v2") -> Any:
         return None
 
 
-def is_available(model_name: str = "all-MiniLM-L6-v2") -> bool:
+def is_available(model_name: str = "all-mpnet-base-v2") -> bool:
     """Check if semantic matching is available."""
     return _get_model(model_name) is not None
 
 
-def encode_texts(texts: list[str], model_name: str = "all-MiniLM-L6-v2") -> np.ndarray | None:
+def encode_texts(texts: list[str], model_name: str = "all-mpnet-base-v2") -> np.ndarray | None:
     """Encode a list of texts into embedding vectors.
 
     Returns an (N, D) numpy array, or None if the model isn't available.
@@ -54,7 +54,7 @@ def encode_texts(texts: list[str], model_name: str = "all-MiniLM-L6-v2") -> np.n
     return model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
 
 
-def encode_single(text: str, model_name: str = "all-MiniLM-L6-v2") -> np.ndarray | None:
+def encode_single(text: str, model_name: str = "all-mpnet-base-v2") -> np.ndarray | None:
     """Encode a single text into an embedding vector."""
     result = encode_texts([text], model_name)
     if result is None:
@@ -114,8 +114,8 @@ def build_job_text(title: str, company: str, description: str | None = None) -> 
     if company and company != "Unknown":
         parts.append(f"at {company}")
     if description:
-        # Use first 500 chars of description — more context helps
-        parts.append(description[:500])
+        # Use first 1500 chars of description — more context helps matching
+        parts.append(description[:1500])
     return ". ".join(parts)
 
 
@@ -123,7 +123,7 @@ class SemanticMatcher:
     """Scores jobs against subscriptions using embedding similarity.
 
     Usage:
-        matcher = SemanticMatcher(model_name="all-MiniLM-L6-v2", threshold=0.35)
+        matcher = SemanticMatcher(model_name="all-mpnet-base-v2", threshold=0.35)
 
         # Pre-compute subscription embedding
         query_emb = matcher.encode_subscription(keywords, locations, exp_levels)
@@ -135,7 +135,7 @@ class SemanticMatcher:
 
     def __init__(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = "all-mpnet-base-v2",
         threshold: float = 0.40,
     ) -> None:
         self.model_name = model_name
