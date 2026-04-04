@@ -149,6 +149,18 @@ async def _migrate_subscriptions(conn: AsyncConnection, inspector) -> None:
         """))
         log.info("Backfilled any remaining NULL keywords/locations from old columns.")
 
+        # Rebuild table so old keyword/location columns become nullable.
+        # SQLite doesn't support ALTER COLUMN, so we recreate the table.
+        # Check if the old columns are still NOT NULL before rebuilding.
+        col_info = await conn.run_sync(
+            lambda sync_conn: {
+                c["name"]: c["nullable"]
+                for c in inspect(sync_conn).get_columns("subscriptions")
+            }
+        )
+        if col_info.get("keyword") is False or col_info.get("location") is False:
+            await _make_old_columns_nullable(conn)
+
     # Case 3: New schema only — nothing to do
     elif has_new_keywords:
         log.info("Subscription schema is already new format.")
@@ -243,3 +255,53 @@ async def _migrate_seen_jobs(conn: AsyncConnection, existing_tables: list[str]) 
     result = await conn.execute(text("SELECT COUNT(*) FROM user_jobs"))
     migrated = result.scalar()
     log.info("Migrated %d seen_jobs → user_jobs records.", migrated)
+
+
+async def _make_old_columns_nullable(conn: AsyncConnection) -> None:
+    """Rebuild subscriptions table so old keyword/location columns are nullable.
+
+    SQLite doesn't support ALTER COLUMN, so we recreate the table preserving data.
+    This is needed because new subscriptions only populate the JSON 'keywords'/'locations'
+    columns and leave the old singular columns empty.
+    """
+    log.info("Rebuilding subscriptions table to make old columns nullable...")
+
+    await conn.execute(text("PRAGMA foreign_keys=OFF"))
+    await conn.execute(text("ALTER TABLE subscriptions RENAME TO _subscriptions_old"))
+    await conn.execute(text("""
+        CREATE TABLE subscriptions (
+            id INTEGER NOT NULL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            keyword VARCHAR(256) DEFAULT '',
+            location VARCHAR(256) DEFAULT '',
+            max_age_days INTEGER NOT NULL DEFAULT 7,
+            created_at DATETIME NOT NULL,
+            keywords TEXT NOT NULL,
+            locations TEXT NOT NULL,
+            excluded_keywords TEXT NOT NULL DEFAULT '[]',
+            company_blacklist TEXT NOT NULL DEFAULT '[]',
+            boards TEXT NOT NULL DEFAULT '["indeed","linkedin","glassdoor"]',
+            experience_levels TEXT NOT NULL DEFAULT '["any"]',
+            remote_ok BOOLEAN NOT NULL DEFAULT 0,
+            salary_min INTEGER,
+            is_active BOOLEAN NOT NULL DEFAULT 1
+        )
+    """))
+    await conn.execute(text("""
+        INSERT INTO subscriptions
+        SELECT id, user_id, keyword, location, max_age_days, created_at,
+               COALESCE(keywords, '["' || keyword || '"]'),
+               COALESCE(locations, '["' || location || '"]'),
+               COALESCE(excluded_keywords, '[]'),
+               COALESCE(company_blacklist, '[]'),
+               COALESCE(boards, '["indeed","linkedin","glassdoor"]'),
+               COALESCE(experience_levels, '["any"]'),
+               COALESCE(remote_ok, 0),
+               salary_min,
+               COALESCE(is_active, 1)
+        FROM _subscriptions_old
+    """))
+    await conn.execute(text("DROP TABLE _subscriptions_old"))
+    await conn.execute(text("PRAGMA foreign_keys=ON"))
+
+    log.info("Rebuilt subscriptions table — old columns are now nullable.")

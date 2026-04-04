@@ -116,19 +116,21 @@ async def _handle_cover_letter_interaction(
     from sqlalchemy import select
 
     try:
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
         async with get_session() as session:
             user = (await session.execute(
                 select(User).where(User.discord_user_id == interaction.user.id)
             )).scalar_one_or_none()
 
         if not user:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Use `/quickstart` first to set up your account.", ephemeral=True,
             )
             return
 
         if not load_cv(user.id):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Upload your CV first with `/upload_cv`, then try again.", ephemeral=True,
             )
             return
@@ -137,13 +139,11 @@ async def _handle_cover_letter_interaction(
         usage = await get_monthly_usage(user.id)
         limit = int(user.limits.get("cover_letters_per_month", 3))
         if usage >= limit:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"You've used all **{limit}** cover letters this month. "
                 f"Use `/upgrade` to get unlimited.", ephemeral=True,
             )
             return
-
-        await interaction.response.defer(ephemeral=True)
 
         content, was_cached = await generate_cover_letter(user.id, job_id)
         if not content:

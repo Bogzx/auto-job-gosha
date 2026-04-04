@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -24,7 +25,15 @@ from gosha.models import CoverLetter, Job, User
 log = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODELS = [
+    "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemma-4-31b-it",
+]
 
 # CV storage directory
 CV_DIR = Path(__file__).resolve().parent.parent / "data" / "cvs"
@@ -65,6 +74,19 @@ def delete_cv(user_id: int) -> bool:
     return False
 
 
+def _clean_pdf_text(text: str) -> str:
+    """Clean up common PDF extraction artifacts from LaTeX CVs."""
+    # Remove LaTeX \csuse{...} icon commands
+    text = re.sub(r"\\csuse\s*\{[^}]*\}:?\s*", "", text)
+    # Remove Unicode Private Use Area chars (icon fonts like FontAwesome)
+    text = re.sub(r"[\ue000-\uf8ff\U000f0000-\U000ffffd]", "", text)
+    # Remove stray icon-font remnants (single non-ASCII symbols on contact lines)
+    text = re.sub(r"^[#§ï*]\s+", "", text, flags=re.MULTILINE)
+    # Collapse multiple blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
 async def extract_text_from_attachment(attachment) -> str | None:
     """Extract text from a Discord attachment (PDF or plain text).
 
@@ -79,15 +101,15 @@ async def extract_text_from_attachment(attachment) -> str | None:
 
     if filename.endswith(".pdf"):
         try:
-            import io
-            from pypdf import PdfReader
+            import pymupdf
 
-            reader = PdfReader(io.BytesIO(content))
-            pages = [page.extract_text() or "" for page in reader.pages]
+            doc = pymupdf.open(stream=content, filetype="pdf")
+            pages = [page.get_text() for page in doc]
             text = "\n".join(pages).strip()
+            text = _clean_pdf_text(text)
             return text if text else None
         except ImportError:
-            log.warning("pypdf not installed — cannot extract PDF text. Install with: pip install pypdf")
+            log.warning("pymupdf not installed — cannot extract PDF text. Install with: pip install pymupdf")
             return None
         except Exception as exc:
             log.error("PDF extraction failed: %s", exc)
@@ -139,52 +161,61 @@ async def get_monthly_usage(user_id: int) -> int:
 
 
 async def _call_gemini(prompt: str) -> str | None:
-    """Call the Gemini API with a prompt. Returns the generated text or None."""
+    """Call the Gemini API, trying each model in GEMINI_MODELS until one succeeds."""
     if not GEMINI_API_KEY:
         log.error("GEMINI_API_KEY not set — cover letter generation unavailable")
         return None
 
     try:
         import httpx
-
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-        )
-
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.7,
-                "maxOutputTokens": 2048,
-            },
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json=payload)
-
-            if resp.status_code != 200:
-                log.error("Gemini API error %d: %s", resp.status_code, resp.text[:500])
-                return None
-
-            data = resp.json()
-            candidates = data.get("candidates", [])
-            if not candidates:
-                log.error("Gemini returned no candidates: %s", data)
-                return None
-
-            parts = candidates[0].get("content", {}).get("parts", [])
-            if not parts:
-                return None
-
-            return parts[0].get("text", "").strip()
-
     except ImportError:
         log.error("httpx not installed — Gemini API unavailable")
         return None
-    except Exception as exc:
-        log.error("Gemini API call failed: %s", exc)
-        return None
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 2048,
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for model in GEMINI_MODELS:
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{model}:generateContent?key={GEMINI_API_KEY}"
+            )
+            try:
+                resp = await client.post(url, json=payload)
+
+                if resp.status_code == 429:
+                    log.warning("Gemini model %s rate-limited (429) — trying next", model)
+                    continue
+
+                if resp.status_code != 200:
+                    log.error("Gemini API error %d for %s: %s", resp.status_code, model, resp.text[:500])
+                    continue
+
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    log.error("Gemini %s returned no candidates: %s", model, data)
+                    continue
+
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if not parts:
+                    continue
+
+                log.info("Cover letter generated using model: %s", model)
+                return parts[0].get("text", "").strip()
+
+            except Exception as exc:
+                log.error("Gemini API call failed for %s: %s", model, exc)
+                continue
+
+    log.error("All Gemini models exhausted — cover letter generation failed")
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +257,7 @@ Rules:
 ---
 
 CANDIDATE CV:
-{cv_text[:4000]}
+{cv_text[:15000]}
 
 ---
 

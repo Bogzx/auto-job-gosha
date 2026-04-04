@@ -26,5 +26,5 @@ itsdangerous>=2.1
 # Webhook delivery (optional)
 # aiohttp>=3.9
 
-# CV parsing for cover letter generation (optional)
-pypdf>=4.0
+# CV parsing for cover letter generation
+pymupdf>=1.24
