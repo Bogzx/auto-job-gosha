@@ -449,7 +449,13 @@ async def _deliver_new(bot: JobBot, since: datetime) -> int:
         log.info("Cross-board dedup: skipped %d duplicate deliveries", skipped)
 
     sent = 0
+    dm_failed_users: dict[int, str] = {}  # discord_id -> username hint
+
     for uj, job, user, sub in deduped:
+        # Skip users whose DMs already failed this cycle
+        if user.discord_user_id in dm_failed_users:
+            continue
+
         # Build match reason from subscription keywords
         match_info = None
         if sub:
@@ -466,6 +472,24 @@ async def _deliver_new(bot: JobBot, since: datetime) -> int:
                 await emit_job_delivered(job.id, user.id, "discord_dm")
             except Exception:
                 pass
+        else:
+            dm_failed_users[user.discord_user_id] = f"<@{user.discord_user_id}>"
+
+    # Notify users with closed DMs in the alert channel
+    if dm_failed_users and bot.alert_channel_id:
+        try:
+            import discord as _discord
+            channel = bot.get_channel(bot.alert_channel_id)
+            if channel is not None:
+                mentions = " ".join(dm_failed_users.values())
+                await channel.send(
+                    f"**I found jobs for you but can't deliver them!**\n"
+                    f"{mentions}\n\n"
+                    f"Please enable DMs so I can send you job matches:\n"
+                    f"**Server Settings > Privacy Settings > Allow direct messages from server members**"
+                )
+        except Exception as exc:
+            log.error("Failed to send DM-failure notice: %s", exc)
 
     return sent
 
