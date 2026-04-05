@@ -22,6 +22,33 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+def _chunk_text(text: str, max_chars: int = 3900) -> list[str]:
+    """Split text into chunks ≤ max_chars, breaking on natural boundaries.
+
+    Prefers paragraph breaks, then line breaks, then word boundaries; falls
+    back to a hard cut if no separator exists in the second half of the window.
+    """
+    if len(text) <= max_chars:
+        return [text]
+
+    chunks: list[str] = []
+    remaining = text
+    while remaining:
+        if len(remaining) <= max_chars:
+            chunks.append(remaining)
+            break
+        window = remaining[:max_chars]
+        idx = max_chars  # hard-cut fallback
+        for sep in ("\n\n", "\n", " "):
+            candidate = window.rfind(sep)
+            if candidate > max_chars // 2:
+                idx = candidate
+                break
+        chunks.append(remaining[:idx].rstrip())
+        remaining = remaining[idx:].lstrip()
+    return chunks
+
+
 class JobBot(commands.Bot):
     """Custom Bot subclass — syncs command tree on ready."""
 
@@ -1401,25 +1428,47 @@ class SubscriptionCog(commands.Cog):
             usage = await get_monthly_usage(user.id)
             limit = int(user.limits.get("cover_letters_per_month", 3))
             word_count = len(cv_text.split())
+            char_count = len(cv_text)
 
-            # Show preview (first 500 chars, escape backticks for Discord)
-            preview = cv_text[:500].replace("`", "'")
-            if len(cv_text) > 500:
-                preview += "..."
+            # Paginate the full extracted CV across one or more embeds.
+            # Each description must stay under 4096 chars — 3900 leaves room
+            # for code-fence wrappers and a small safety margin.
+            chunks = _chunk_text(cv_text, max_chars=3900)
+            total = len(chunks)
 
-            embed = discord.Embed(
-                title="Your Stored CV",
-                description=f"```\n{preview}\n```",
+            def _render(chunk: str) -> str:
+                # Escape triple backticks so they can't close the code fence.
+                return f"```\n{chunk.replace('`', chr(0x2019))}\n```"
+
+            first = discord.Embed(
+                title=(
+                    "Your Stored CV"
+                    if total == 1
+                    else f"Your Stored CV — part 1/{total}"
+                ),
+                description=_render(chunks[0]),
                 color=discord.Color.blue(),
             )
-            embed.add_field(name="Words", value=str(word_count), inline=True)
-            embed.add_field(
+            first.add_field(name="Words", value=str(word_count), inline=True)
+            first.add_field(name="Characters", value=str(char_count), inline=True)
+            first.add_field(
                 name="Cover Letters This Month",
                 value=f"{usage}/{limit}" if limit < 100 else f"{usage} (unlimited)",
                 inline=True,
             )
-            embed.set_footer(text="Use /upload_cv to replace, or /delete_cv to remove.")
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            first.set_footer(
+                text="Use /upload_cv to replace, or /delete_cv to remove."
+            )
+            await interaction.response.send_message(embed=first, ephemeral=True)
+
+            # Follow-up messages for any remaining chunks.
+            for i, chunk in enumerate(chunks[1:], start=2):
+                cont = discord.Embed(
+                    title=f"Your Stored CV — part {i}/{total}",
+                    description=_render(chunk),
+                    color=discord.Color.blue(),
+                )
+                await interaction.followup.send(embed=cont, ephemeral=True)
         except Exception as exc:
             log.exception("Error in /my_cv")
             msg = "Something went wrong. Please try again later."
