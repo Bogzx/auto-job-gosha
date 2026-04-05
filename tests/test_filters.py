@@ -75,14 +75,14 @@ class TestLocationMatches:
     def test_no_match(self):
         assert location_matches("Berlin, Germany", ["cluj"]) is False
 
-    def test_empty_location_includes(self):
-        assert location_matches("", ["cluj"]) is True
+    def test_empty_location_excludes(self):
+        assert location_matches("", ["cluj"]) is False
 
-    def test_nan_location_includes(self):
-        assert location_matches("nan", ["cluj"]) is True
+    def test_nan_location_excludes(self):
+        assert location_matches("nan", ["cluj"]) is False
 
-    def test_none_location_includes(self):
-        assert location_matches(None, ["cluj"]) is True  # type: ignore[arg-type]
+    def test_none_location_excludes(self):
+        assert location_matches(None, ["cluj"]) is False  # type: ignore[arg-type]
 
     def test_multiple_substrings(self):
         assert location_matches("București, Romania", ["bucuresti", "bucurești"]) is True

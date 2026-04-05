@@ -255,9 +255,14 @@ def expand_keyword(keyword: str) -> list[str]:
 
 
 def location_matches(job_location: str, match_substrings: list[str]) -> bool:
-    """Check if a job's location fuzzy-matches any expected substrings."""
+    """Check if a job's location fuzzy-matches any expected substrings.
+
+    Jobs with missing/NaN location data are rejected: when the user has
+    explicitly restricted by location, we cannot confirm a match without
+    data, so we exclude rather than leak unrelated postings.
+    """
     if not job_location or pd.isna(job_location) or str(job_location).lower() == "nan":
-        return True  # If no location data, include rather than miss
+        return False
     loc_lower = str(job_location).lower()
     return any(sub in loc_lower for sub in match_substrings)
 
