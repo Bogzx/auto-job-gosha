@@ -243,7 +243,7 @@ class SubscriptionCog(commands.Cog):
                     user_id=user.id,
                     max_age_days=max_age_days,
                     salary_min=salary_min,
-                    remote_ok=True,
+                    remote_ok=False,
                 )
                 sub.keywords = keywords
                 sub.locations = locations
@@ -281,7 +281,7 @@ class SubscriptionCog(commands.Cog):
                     title=f"Subscribed! #{sub.id}",
                     description=(
                         f"**Keywords:** {kw_display}\n"
-                        f"**Location:** {loc_display} + remote jobs\n"
+                        f"**Location:** {loc_display}\n"
                         f"**Experience:** {experience}\n"
                         f"**Max age:** {max_age_days} days"
                         f"{expansion_note}"
@@ -814,7 +814,7 @@ class SubscriptionCog(commands.Cog):
                 sub = Subscription(
                     user_id=user.id,
                     max_age_days=14,
-                    remote_ok=True,
+                    remote_ok=False,
                 )
                 sub.keywords = ["computer science internship"]
                 sub.locations = [location.strip()]
@@ -840,7 +840,7 @@ class SubscriptionCog(commands.Cog):
                 description=(
                     f"Created subscription **#{sub.id}**:\n\n"
                     f"**Searching for:** CS internships & junior roles\n"
-                    f"**Location:** {_search_loc} + remote jobs\n"
+                    f"**Location:** {_search_loc}\n"
                     f"**Experience:** Intern + Junior\n"
                     f"**Looking back:** 14 days\n\n"
                     f"This searches **19 job titles** automatically across "
