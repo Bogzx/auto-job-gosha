@@ -1,0 +1,21 @@
+# Never bake secrets or local state into image layers
+.env
+*.env
+keys/
+data/
+migration/
+
+# Not needed in images
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+web/node_modules/
+web/dist/
+shots/
+.superpowers/
+.playwright-cli/
+docs/
