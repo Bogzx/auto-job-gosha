@@ -63,6 +63,16 @@ async def test_cookie_for_deleted_user_rejected(client):
 
 
 @pytest.mark.asyncio
+async def test_meta_vocabulary(client):
+    resp = await client.get("/api/v1/meta")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "computer science internship" in body["smart_keywords"]
+    assert "cluj" in body["locations"]
+    assert "intern" in body["experience_levels"]
+
+
+@pytest.mark.asyncio
 async def test_unknown_route_envelope(client):
     resp = await client.get("/api/v1/definitely-not-a-route")
     assert resp.status_code == 404

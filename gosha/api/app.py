@@ -70,6 +70,18 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"ok": True}
 
+    @app.get(f"{API_PREFIX}/meta")
+    async def meta() -> dict:
+        """Static vocabulary for search-form suggestions."""
+        from gosha.filters import KEYWORD_EXPANSIONS, LOCATION_ALIASES
+
+        return {
+            "smart_keywords": sorted(KEYWORD_EXPANSIONS.keys()),
+            "locations": sorted(LOCATION_ALIASES.keys()),
+            "experience_levels": ["intern", "junior", "mid", "senior", "any"],
+            "sources": ["indeed", "linkedin", "glassdoor"],
+        }
+
     @app.get(f"{API_PREFIX}/me", response_model=MeOut)
     async def me(user: User = Depends(current_user)) -> MeOut:
         from gosha.cover_letter import load_cv
