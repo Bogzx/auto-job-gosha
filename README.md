@@ -256,6 +256,45 @@ Scopes: `bot`, `applications.commands`. Minimum permissions: `Send Messages`, `E
 
 ---
 
+## Deploying the Web Platform (jobs.bogdantruta.com)
+
+The repo now ships a full public web platform: React SPA + FastAPI API +
+Postgres + Caddy (auto-HTTPS), alongside the original Discord bot.
+
+**One-time setup on the VPS:**
+
+1. **DNS** — add an `A` record: `jobs.bogdantruta.com` → VPS IP.
+2. **Discord application** (same app as the bot, Developer Portal → OAuth2):
+   - copy the **Client ID** and **Client Secret** into `.env`
+   - add redirect URI: `https://jobs.bogdantruta.com/api/v1/auth/discord/callback`
+3. **Env** — `cp .env.example .env` and fill in at minimum: `DISCORD_TOKEN`,
+   `SESSION_SECRET`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`,
+   `PUBLIC_BASE_URL=https://jobs.bogdantruta.com`, `POSTGRES_PASSWORD`,
+   `DISCORD_GUILD_ID` + `DISCORD_INVITE_URL` (join-server funnel), and a
+   cover-letter LLM key (`GEMINI_API_KEY` or `OPENROUTER_API_KEY`).
+4. **Launch:** `docker compose -f docker-compose.prod.yml up -d --build`
+5. **Migrate old SQLite data** (only if upgrading an existing bot install):
+
+   ```bash
+   docker compose -f docker-compose.prod.yml run --rm bot \
+     python scripts/migrate_sqlite_to_postgres.py \
+     sqlite+aiosqlite:///data/jobs.db \
+     "postgresql+asyncpg://gosha:$POSTGRES_PASSWORD@postgres:5432/gosha"
+   ```
+
+Updates afterwards: `./deploy.sh` (git pull + rebuild + restart).
+
+Local prod-parity test without the domain: set `CADDY_SITE=:8080` in `.env`,
+then browse `http://localhost:8080`.
+
+### AI provider for cover letters
+
+Generation auto-detects the provider: **OpenRouter** when
+`OPENROUTER_API_KEY` is set (model from `OPENROUTER_MODEL`, e.g. a DeepSeek
+variant), otherwise **Gemini**. Force one with `LLM_PROVIDER=openrouter|gemini`.
+
+---
+
 ## Configuration Reference
 
 All settings are read from environment variables (loaded via `gosha/config.py`). See `gosha/env.example` for the full template.

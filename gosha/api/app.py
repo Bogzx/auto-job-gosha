@@ -37,15 +37,31 @@ _HTTP_CODES = {
 
 
 def create_app() -> FastAPI:
+    import os
+    from contextlib import asynccontextmanager
+
     from gosha.config import load_web_settings
 
     load_web_settings()  # fail fast when required env vars are missing
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # The API runs in its own process (uvicorn) — initialize the DB
+        # here. Tests inject their own engine and never run lifespan.
+        import gosha.database as db
+
+        if db._session_factory is None:
+            url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///data/jobs.db")
+            await db.init_db(url)
+            log.info("API database initialised")
+        yield
 
     app = FastAPI(
         title="GOSHA Jobs API",
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        lifespan=lifespan,
     )
 
     @app.exception_handler(ApiError)

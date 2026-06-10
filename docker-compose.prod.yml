@@ -1,0 +1,91 @@
+# Production stack for jobs.bogdantruta.com
+#
+#   cp .env.example .env   # fill in secrets
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# One-time data migration from the old SQLite database:
+#   docker compose -f docker-compose.prod.yml run --rm bot \
+#     python scripts/migrate_sqlite_to_postgres.py \
+#     sqlite+aiosqlite:///data/jobs.db \
+#     postgresql+asyncpg://gosha:${POSTGRES_PASSWORD}@postgres:5432/gosha
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gosha-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gosha
+      POSTGRES_USER: gosha
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gosha -d gosha"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Discord bot + scraper + scheduler (embeddings, outbox, tunnels)
+  bot:
+    build: .
+    container_name: gosha-bot
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://gosha:${POSTGRES_PASSWORD}@postgres:5432/gosha
+    volumes:
+      - ./data:/app/data          # CV files + legacy SQLite for migration
+      - ./keys:/home/app/.ssh:ro  # SSH keys for proxy tunnels (optional)
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Public JSON API consumed by the SPA
+  api:
+    build: .
+    container_name: gosha-api
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://gosha:${POSTGRES_PASSWORD}@postgres:5432/gosha
+    volumes:
+      - ./data:/app/data          # shared CV storage with the bot
+    command:
+      [
+        "uvicorn", "gosha.api.app:create_app", "--factory",
+        "--host", "0.0.0.0", "--port", "8000",
+        "--proxy-headers", "--forwarded-allow-ips", "*",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # HTTPS edge: serves the SPA build + proxies /api -> api
+  caddy:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_DISCORD_INVITE: ${DISCORD_INVITE_URL:-}
+    container_name: gosha-caddy
+    restart: unless-stopped
+    environment:
+      CADDY_SITE: ${CADDY_SITE:-jobs.bogdantruta.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
