@@ -287,20 +287,24 @@ async def _make_old_columns_nullable(conn: AsyncConnection) -> None:
             is_active BOOLEAN NOT NULL DEFAULT 1
         )
     """))
-    await conn.execute(text("""
-        INSERT INTO subscriptions
-        SELECT id, user_id, keyword, location, max_age_days, created_at,
-               COALESCE(keywords, '["' || keyword || '"]'),
-               COALESCE(locations, '["' || location || '"]'),
-               COALESCE(excluded_keywords, '[]'),
-               COALESCE(company_blacklist, '[]'),
-               COALESCE(boards, '["indeed","linkedin","glassdoor"]'),
-               COALESCE(experience_levels, '["any"]'),
-               COALESCE(remote_ok, 0),
-               salary_min,
-               COALESCE(is_active, 1)
-        FROM _subscriptions_old
-    """))
+    await conn.execute(
+        text("""
+            INSERT INTO subscriptions
+            SELECT id, user_id, keyword, location, max_age_days,
+                   COALESCE(created_at, :now),
+                   COALESCE(keywords, '["' || keyword || '"]'),
+                   COALESCE(locations, '["' || location || '"]'),
+                   COALESCE(excluded_keywords, '[]'),
+                   COALESCE(company_blacklist, '[]'),
+                   COALESCE(boards, '["indeed","linkedin","glassdoor"]'),
+                   COALESCE(experience_levels, '["any"]'),
+                   COALESCE(remote_ok, 0),
+                   salary_min,
+                   COALESCE(is_active, 1)
+            FROM _subscriptions_old
+        """),
+        {"now": datetime.now(timezone.utc).isoformat()},
+    )
     await conn.execute(text("DROP TABLE _subscriptions_old"))
     await conn.execute(text("PRAGMA foreign_keys=ON"))
 
