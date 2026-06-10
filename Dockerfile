@@ -11,7 +11,8 @@ RUN useradd --create-home --uid 1000 app
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Generous timeout/retries: torch (sentence-transformers) is a large wheel
+RUN pip install --no-cache-dir --timeout 180 --retries 8 -r requirements.txt
 
 COPY . .
 
