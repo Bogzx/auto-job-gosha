@@ -3,7 +3,6 @@ import {
   BellOff,
   BellRing,
   Loader2,
-  MessageCircleWarning,
   Pause,
   Pencil,
   Play,
@@ -11,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { Subscription } from '../api/types'
+import { DiscordHelp } from '../components/DiscordHelp'
 import { SearchForm } from '../components/SearchForm'
 import { useToast } from '../components/Toast'
 import { useMe } from '../hooks/useMe'
@@ -130,28 +130,8 @@ export default function Searches() {
       </div>
 
       {me && !me.in_guild && (
-        <div className="card-press mb-4 border-amber bg-amber-soft p-4">
-          <p className="flex items-start gap-2 text-sm font-medium">
-            <MessageCircleWarning size={18} className="mt-0.5 shrink-0 text-amber" aria-hidden />
-            <span>
-              <strong>Discord alerts can't reach you yet.</strong> Join the
-              GOSHA server so the bot can DM you new matches — everything still
-              works here on the site either way.
-              {import.meta.env.VITE_DISCORD_INVITE && (
-                <>
-                  {' '}
-                  <a
-                    href={import.meta.env.VITE_DISCORD_INVITE}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold text-sky underline"
-                  >
-                    Join the server →
-                  </a>
-                </>
-              )}
-            </span>
-          </p>
+        <div className="mb-4">
+          <DiscordHelp />
         </div>
       )}
 

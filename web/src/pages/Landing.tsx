@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { ArrowRight, FileText, MessageCircle, Sparkles } from 'lucide-react'
 import { Logo } from '../components/Logo'
+import { DISCORD_INVITE } from '../lib/constants'
 import { prefetchLogin, signInWithDiscord } from '../lib/signin'
 
 const PHOTOS = {
@@ -151,20 +152,39 @@ export default function Landing() {
               The best roles get 200 applicants in the first 48 hours. Be
               early, every time.
             </h2>
-            <button
-              type="button"
-              onClick={signInWithDiscord}
-              className="btn-go mt-8 border-paper px-6 py-3 text-base shadow-[3px_3px_0_0_var(--color-paper)]"
-            >
-              Get your feed
-              <ArrowRight size={18} aria-hidden />
-            </button>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={signInWithDiscord}
+                className="btn-go border-paper px-6 py-3 text-base shadow-[3px_3px_0_0_var(--color-paper)]"
+              >
+                Get your feed
+                <ArrowRight size={18} aria-hidden />
+              </button>
+              <a
+                href={DISCORD_INVITE}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-quiet border-paper/40 px-6 py-3 text-base text-paper hover:bg-paper/10"
+              >
+                <MessageCircle size={18} aria-hidden />
+                Join the Discord
+              </a>
+            </div>
           </div>
         </div>
         <p className="rule-dotted mt-10 pt-6 text-center font-mono text-xs text-ink-faint">
           GOSHA.jobs - built by students, for students / gosha.bogdantruta.com
           <br />
-          made by{' '}
+          <a
+            href={DISCORD_INVITE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-moss underline underline-offset-2 hover:text-go"
+          >
+            join our Discord
+          </a>
+          {' / '}made by{' '}
           <a
             href="https://bogdantruta.com"
             target="_blank"

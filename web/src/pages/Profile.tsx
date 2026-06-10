@@ -1,4 +1,5 @@
-import { LogOut, MessageCircle, ShieldCheck } from 'lucide-react'
+import { LogOut, ShieldCheck } from 'lucide-react'
+import { DiscordHelp } from '../components/DiscordHelp'
 import { useLogout, useMe } from '../hooks/useMe'
 
 export default function Profile() {
@@ -64,17 +65,9 @@ export default function Profile() {
         </dl>
       </div>
 
-      {!me.in_guild && import.meta.env.VITE_DISCORD_INVITE && (
-        <a
-          href={import.meta.env.VITE_DISCORD_INVITE}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-ink mt-4 w-full"
-        >
-          <MessageCircle size={15} aria-hidden />
-          Join the Discord server for DM alerts
-        </a>
-      )}
+      <div className="mt-4">
+        <DiscordHelp compact={me.in_guild} />
+      </div>
 
       <button type="button" className="btn-quiet mt-4 w-full" onClick={() => void logout()}>
         <LogOut size={15} aria-hidden />
