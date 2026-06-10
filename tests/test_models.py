@@ -249,3 +249,96 @@ async def test_user_job_different_users_same_job(session: AsyncSession, sample_j
     )
     deliveries = result.scalars().all()
     assert len(deliveries) == 2
+
+
+# ── Web platform extensions (users/jobs/subscriptions/applications/outbox) ──
+
+
+@pytest.mark.asyncio
+async def test_user_web_columns(session: AsyncSession):
+    import json as _json
+    from gosha.models import Outbox  # noqa: F401 — ensure model imports
+
+    user = User(
+        discord_user_id=42,
+        username="gosha",
+        avatar_url="https://cdn.discordapp.com/avatars/42/a.png",
+        in_guild=True,
+    )
+    session.add(user)
+    await session.commit()
+
+    result = await session.execute(select(User).where(User.discord_user_id == 42))
+    fetched = result.scalar_one()
+    assert fetched.username == "gosha"
+    assert fetched.in_guild is True
+    assert fetched.cv_embedding is None
+    assert fetched.created_at is not None
+    assert fetched.last_login_at is None
+
+
+@pytest.mark.asyncio
+async def test_job_embedding_and_posted_at(session: AsyncSession):
+    from datetime import datetime, timezone
+
+    job = Job(
+        url="https://example.com/emb",
+        title="Dev",
+        company="X",
+        source="indeed",
+        embedding=b"\x00\x01\x02",
+        posted_at=datetime(2026, 6, 1, tzinfo=timezone.utc),
+    )
+    session.add(job)
+    await session.commit()
+    assert job.embedding == b"\x00\x01\x02"
+    assert job.posted_at is not None
+
+
+@pytest.mark.asyncio
+async def test_subscription_name_and_notify(session: AsyncSession, sample_user: User):
+    sub = Subscription(user_id=sample_user.id, name="Cluj internships")
+    sub.keywords = ["intern"]
+    sub.locations = ["cluj"]
+    session.add(sub)
+    await session.commit()
+    assert sub.name == "Cluj internships"
+    assert sub.notify_discord is True
+
+
+@pytest.mark.asyncio
+async def test_application_source_default(session: AsyncSession, sample_user: User, sample_job: Job):
+    from gosha.models import Application
+
+    app = Application(user_id=sample_user.id, job_id=sample_job.id)
+    session.add(app)
+    await session.commit()
+    assert app.source == "discord"
+
+    web_app = Application(
+        user_id=sample_user.id, job_id=sample_job.id + 1000, source="web"
+    )
+    assert web_app.source == "web"
+
+
+@pytest.mark.asyncio
+async def test_outbox_roundtrip(session: AsyncSession, sample_user: User):
+    import json as _json
+    from gosha.models import Outbox
+
+    o = Outbox(
+        user_id=sample_user.id,
+        kind="test_dm",
+        payload=_json.dumps({"text": "hi"}),
+    )
+    session.add(o)
+    await session.commit()
+
+    result = await session.execute(select(Outbox))
+    fetched = result.scalar_one()
+    assert fetched.kind == "test_dm"
+    assert fetched.payload_dict == {"text": "hi"}
+    assert fetched.attempts == 0
+    assert fetched.sent_at is None
+    assert fetched.last_error is None
+    assert fetched.created_at is not None

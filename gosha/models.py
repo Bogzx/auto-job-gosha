@@ -13,6 +13,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -120,6 +121,20 @@ class User(Base):
         String(32), nullable=False, default="free"
     )
 
+    # Web platform profile (populated via Discord OAuth)
+    username: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=_utcnow
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Whether the bot shares a guild with this user (can DM them)
+    in_guild: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # float32 bytes of the user's CV embedding (see gosha/embeddings.py)
+    cv_embedding: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+
     subscriptions: Mapped[list[Subscription]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
@@ -156,6 +171,12 @@ class Job(Base):
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
     )
+    # Date the posting went live on the source board (when extractable)
+    posted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # float32 bytes of the job-text embedding (see gosha/embeddings.py)
+    embedding: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
     user_jobs: Mapped[list[UserJob]] = relationship(
         back_populates="job", cascade="all, delete-orphan"
@@ -198,6 +219,10 @@ class Subscription(Base, _JSONListMixin):
     salary_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     max_age_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Web platform additions
+    name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    notify_discord: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
@@ -336,6 +361,10 @@ class Application(Base):
         String(32), nullable=False, default="applied"
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Where the application was recorded from: 'web' (Apply click) or 'discord'
+    source: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="discord"
+    )
     applied_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
     )
@@ -357,6 +386,45 @@ class Application(Base):
 # ---------------------------------------------------------------------------
 # CoverLetter — stores generated cover letters + tracks monthly usage
 # ---------------------------------------------------------------------------
+
+
+class Outbox(Base):
+    """Queue of Discord messages the web app asks the bot to send.
+
+    The API process has no gateway connection, so it enqueues rows here;
+    the bot polls every ~30s, sends the DM, and stamps sent_at. Rows that
+    fail 5 times are considered dead and surfaced in the admin dashboard.
+    """
+
+    __tablename__ = "outbox"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    user: Mapped[User] = relationship(passive_deletes=True)
+
+    @property
+    def payload_dict(self) -> dict[str, Any]:
+        try:
+            value = json.loads(self.payload)
+            return value if isinstance(value, dict) else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    def __repr__(self) -> str:
+        return f"<Outbox id={self.id} kind={self.kind!r} user={self.user_id}>"
 
 
 class CoverLetter(Base):

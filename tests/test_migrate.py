@@ -185,3 +185,82 @@ async def test_json_list_fallback_for_old_string():
     assert _JSONListMixin._load_json_list("") == []
     assert _JSONListMixin._load_json_list(None) == []
     assert _JSONListMixin._load_json_list("[]") == []
+
+
+@pytest.mark.asyncio
+async def test_migration_adds_web_platform_columns(old_db):
+    """A pre-web-platform DB gains the new user/job/subscription/application columns."""
+    from sqlalchemy import inspect
+
+    from gosha.migrate import run_migrations
+
+    # Simulate a previous-version DB that already has jobs/applications
+    # tables but none of the web-platform columns.
+    async with old_db.begin() as conn:
+        await conn.execute(text("""
+            CREATE TABLE jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url VARCHAR(1024) UNIQUE NOT NULL,
+                title VARCHAR(512) NOT NULL,
+                company VARCHAR(256) NOT NULL DEFAULT 'Unknown',
+                location VARCHAR(256) NOT NULL DEFAULT '',
+                description TEXT,
+                salary_min FLOAT, salary_max FLOAT, salary_currency VARCHAR(16),
+                source VARCHAR(64) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                first_seen_at DATETIME, last_seen_at DATETIME
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE applications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                job_id INTEGER NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'applied',
+                notes TEXT,
+                applied_at DATETIME, updated_at DATETIME
+            )
+        """))
+        await conn.execute(text(
+            "INSERT INTO jobs (url, title, source) VALUES ('https://x/1', 'Dev', 'indeed')"
+        ))
+        await conn.execute(text(
+            "INSERT INTO applications (user_id, job_id) VALUES (1, 1)"
+        ))
+
+    async with old_db.begin() as conn:
+        await run_migrations(conn)
+        await conn.run_sync(Base.metadata.create_all)
+
+    async with old_db.connect() as conn:
+        cols = {
+            table: [
+                c["name"]
+                for c in (await conn.run_sync(
+                    lambda sc, t=table: inspect(sc).get_columns(t)
+                ))
+            ]
+            for table in ("users", "jobs", "subscriptions", "applications")
+        }
+
+    for col in ("username", "avatar_url", "in_guild", "cv_embedding", "last_login_at"):
+        assert col in cols["users"], f"users.{col} missing"
+    for col in ("posted_at", "embedding"):
+        assert col in cols["jobs"], f"jobs.{col} missing"
+    for col in ("name", "notify_discord"):
+        assert col in cols["subscriptions"], f"subscriptions.{col} missing"
+    assert "source" in cols["applications"]
+
+    # Existing rows got the defaults
+    async with old_db.connect() as conn:
+        result = await conn.execute(text("SELECT source FROM applications"))
+        assert result.scalar() == "discord"
+        result = await conn.execute(text("SELECT in_guild FROM users WHERE id = 1"))
+        assert result.scalar() == 0
+
+    # And the rebuild path keeps the new columns when it runs afterwards
+    async with old_db.begin() as conn:
+        await run_migrations(conn)
+    async with old_db.connect() as conn:
+        result = await conn.execute(text("SELECT notify_discord FROM subscriptions WHERE id = 1"))
+        assert result.scalar() == 1

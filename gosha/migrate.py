@@ -28,15 +28,42 @@ async def run_migrations(conn: AsyncConnection) -> None:
 
     log.info("Existing tables: %s", existing_tables)
 
+    # Dialect-aware type/literal fragments (SQLite for legacy DBs; Postgres
+    # starts fresh via create_all but must not crash if this runs there).
+    is_pg = conn.dialect.name == "postgresql"
+    false_lit = "FALSE" if is_pg else "0"
+    true_lit = "TRUE" if is_pg else "1"
+    blob_type = "BYTEA" if is_pg else "BLOB"
+    dt_type = "TIMESTAMP" if is_pg else "DATETIME"
+
     # 1. Add missing columns to existing tables
     if "users" in existing_tables:
         await _add_missing_columns(conn, "users", {
             "tier": "VARCHAR(32) NOT NULL DEFAULT 'free'",
+            "username": "VARCHAR(128)",
+            "avatar_url": "VARCHAR(512)",
+            "created_at": dt_type,
+            "last_login_at": dt_type,
+            "in_guild": f"BOOLEAN NOT NULL DEFAULT {false_lit}",
+            "cv_embedding": blob_type,
+        })
+
+    if "jobs" in existing_tables:
+        await _add_missing_columns(conn, "jobs", {
+            "posted_at": dt_type,
+            "embedding": blob_type,
+        })
+
+    if "applications" in existing_tables:
+        await _add_missing_columns(conn, "applications", {
+            "source": "VARCHAR(16) NOT NULL DEFAULT 'discord'",
         })
 
     if "subscriptions" in existing_tables:
         await _add_missing_columns(conn, "subscriptions", {
-            "remote_ok": "BOOLEAN NOT NULL DEFAULT 0",
+            "remote_ok": f"BOOLEAN NOT NULL DEFAULT {false_lit}",
+            "name": "VARCHAR(128)",
+            "notify_discord": f"BOOLEAN NOT NULL DEFAULT {true_lit}",
         })
 
     # 2. Migrate subscriptions if old schema detected
@@ -266,6 +293,12 @@ async def _make_old_columns_nullable(conn: AsyncConnection) -> None:
     """
     log.info("Rebuilding subscriptions table to make old columns nullable...")
 
+    # The rebuilt table must include every column the current model defines —
+    # columns added earlier in run_migrations would otherwise be dropped here.
+    old_columns = await conn.run_sync(
+        lambda sync_conn: [c["name"] for c in inspect(sync_conn).get_columns("subscriptions")]
+    )
+
     await conn.execute(text("PRAGMA foreign_keys=OFF"))
     await conn.execute(text("ALTER TABLE subscriptions RENAME TO _subscriptions_old"))
     await conn.execute(text("""
@@ -284,11 +317,17 @@ async def _make_old_columns_nullable(conn: AsyncConnection) -> None:
             experience_levels TEXT NOT NULL DEFAULT '["any"]',
             remote_ok BOOLEAN NOT NULL DEFAULT 0,
             salary_min INTEGER,
-            is_active BOOLEAN NOT NULL DEFAULT 1
+            is_active BOOLEAN NOT NULL DEFAULT 1,
+            name VARCHAR(128),
+            notify_discord BOOLEAN NOT NULL DEFAULT 1
         )
     """))
+    name_expr = "name" if "name" in old_columns else "NULL"
+    notify_expr = (
+        "COALESCE(notify_discord, 1)" if "notify_discord" in old_columns else "1"
+    )
     await conn.execute(
-        text("""
+        text(f"""
             INSERT INTO subscriptions
             SELECT id, user_id, keyword, location, max_age_days,
                    COALESCE(created_at, :now),
@@ -300,7 +339,9 @@ async def _make_old_columns_nullable(conn: AsyncConnection) -> None:
                    COALESCE(experience_levels, '["any"]'),
                    COALESCE(remote_ok, 0),
                    salary_min,
-                   COALESCE(is_active, 1)
+                   COALESCE(is_active, 1),
+                   {name_expr},
+                   {notify_expr}
             FROM _subscriptions_old
         """),
         {"now": datetime.now(timezone.utc).isoformat()},
