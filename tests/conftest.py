@@ -44,6 +44,17 @@ async def session(engine):
 
 
 @pytest_asyncio.fixture
+async def patched_db(engine, monkeypatch):
+    """Patch gosha.database globals so module-level get_session() uses the test engine."""
+    import gosha.database as db_mod
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    monkeypatch.setattr(db_mod, "_engine", engine)
+    monkeypatch.setattr(db_mod, "_session_factory", factory)
+    yield factory
+
+
+@pytest_asyncio.fixture
 async def sample_user(session: AsyncSession) -> User:
     """Create a sample user."""
     user = User(discord_user_id=123456789)

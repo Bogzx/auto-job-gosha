@@ -372,6 +372,13 @@ async def run_scrape_cycle(
         log.info("No jobs found — cycle complete.")
         return 0
 
+    # Embed freshly scraped jobs so the web feed can rank them (best-effort)
+    try:
+        from gosha.embeddings import embed_new_jobs
+        await embed_new_jobs()
+    except Exception as exc:
+        log.warning("Job embedding step failed: %s", exc)
+
     # Stage 2: Match (with optional semantic scoring)
     matcher = None
     if use_semantic:

@@ -67,6 +67,22 @@ async def main() -> None:
         replace_existing=True,
     )
 
+    # Backfill embeddings for jobs that predate the web platform (hourly)
+    async def _embed_backfill() -> None:
+        from gosha.embeddings import embed_new_jobs
+        try:
+            await embed_new_jobs()
+        except Exception as exc:
+            log.warning("Embedding backfill failed: %s", exc)
+
+    scheduler.add_job(
+        _embed_backfill,
+        trigger=IntervalTrigger(hours=1),
+        id="embed_backfill",
+        name="Job embedding backfill",
+        replace_existing=True,
+    )
+
     # Health-check tunnels every 5 minutes and restart dead ones
     if settings.vps_list:
         scheduler.add_job(
