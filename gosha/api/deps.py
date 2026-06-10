@@ -75,6 +75,15 @@ async def current_user(request: Request) -> User:
     return user
 
 
+async def optional_user(request: Request) -> User | None:
+    """Resolve the signed-in user, or None for anonymous requests."""
+    uid = _session_user_id(request)
+    if uid is None:
+        return None
+    async with get_session() as session:
+        return await session.get(User, uid)
+
+
 def is_admin(user: User) -> bool:
     raw = os.getenv("ADMIN_DISCORD_IDS", "")
     admin_ids = {s.strip() for s in raw.split(",") if s.strip()}
