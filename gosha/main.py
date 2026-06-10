@@ -67,6 +67,22 @@ async def main() -> None:
         replace_existing=True,
     )
 
+    # Deliver web-enqueued Discord messages (outbox) every 30 seconds
+    async def _outbox_tick() -> None:
+        from gosha.outbox import process_outbox
+        try:
+            await process_outbox(bot)
+        except Exception as exc:
+            log.warning("Outbox processing failed: %s", exc)
+
+    scheduler.add_job(
+        _outbox_tick,
+        trigger=IntervalTrigger(seconds=30),
+        id="outbox_poller",
+        name="Web outbox DM delivery",
+        replace_existing=True,
+    )
+
     # Backfill embeddings for jobs that predate the web platform (hourly)
     async def _embed_backfill() -> None:
         from gosha.embeddings import embed_new_jobs

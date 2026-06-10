@@ -459,6 +459,11 @@ async def _deliver_new(bot: JobBot, since: datetime) -> int:
     dm_failed_users: dict[int, str] = {}  # discord_id -> username hint
 
     for uj, job, user, sub in deduped:
+        # Web-managed searches can opt out of Discord notifications;
+        # matches still show up on the website.
+        if sub is not None and not sub.notify_discord:
+            continue
+
         # Skip users whose DMs already failed this cycle
         if user.discord_user_id in dm_failed_users:
             continue
