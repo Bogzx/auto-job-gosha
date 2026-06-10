@@ -1,6 +1,7 @@
+import { useEffect } from 'react'
 import { ArrowRight, FileText, MessageCircle, Sparkles } from 'lucide-react'
 import { Logo } from '../components/Logo'
-import { signInWithDiscord } from '../lib/signin'
+import { prefetchLogin, signInWithDiscord } from '../lib/signin'
 
 const PHOTOS = {
   desk: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1200&auto=format&fit=crop',
@@ -27,17 +28,23 @@ const STEPS = [
 ]
 
 export default function Landing() {
+  // Prefetch OAuth URLs (+ CSRF cookie) so the sign-in click can navigate
+  // synchronously: mobile browsers block app deep links otherwise.
+  useEffect(() => {
+    prefetchLogin()
+  }, [])
+
   return (
     <div className="min-h-dvh overflow-x-clip">
-      {/* ── Header ── */}
+      {/* Header */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
         <Logo size="lg" />
-        <button type="button" onClick={() => void signInWithDiscord()} className="btn-quiet text-sm">
+        <button type="button" onClick={signInWithDiscord} className="btn-quiet text-sm">
           Sign in
         </button>
       </header>
 
-      {/* ── Hero ── */}
+      {/* Hero */}
       <section className="mx-auto grid max-w-6xl gap-10 px-4 pt-8 pb-16 md:grid-cols-[1.1fr_1fr] md:gap-6 md:pt-14">
         <div className="animate-rise">
           <p className="mb-4 font-mono text-xs font-semibold tracking-[0.2em] text-go uppercase">
@@ -56,14 +63,14 @@ export default function Landing() {
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <button
               type="button"
-              onClick={() => void signInWithDiscord()}
+              onClick={signInWithDiscord}
               className="btn-go px-6 py-3 text-base"
             >
               Sign in with Discord
               <ArrowRight size={18} aria-hidden />
             </button>
             <span className="font-mono text-xs text-ink-faint">
-              free · no card · 30 seconds
+              free / no card / 30 seconds
             </span>
           </div>
         </div>
@@ -91,20 +98,20 @@ export default function Landing() {
           </figure>
           {/* Floating match chip */}
           <div className="absolute bottom-2 left-6 animate-pop rounded-lg border border-moss bg-go px-4 py-2.5 font-mono text-sm font-bold text-white shadow-[4px_4px_0_0_var(--color-moss)] [animation-delay:0.5s]">
-            92% match · SWE Intern · Cluj
+            92% match / SWE Intern / Cluj
           </div>
         </div>
       </section>
 
-      {/* ── Ticker rule ── */}
+      {/* Ticker rule */}
       <div className="overflow-hidden border-y border-ink bg-moss py-2.5">
         <p className="animate-none text-center font-mono text-xs tracking-[0.25em] text-paper/90 uppercase">
-          Indeed · LinkedIn · Glassdoor · eJobs · BestJobs · Hipo · Remote
-          boards — one feed, zero refreshing
+          Indeed / LinkedIn / Glassdoor / eJobs / BestJobs / Hipo / Remote
+          boards - one feed, zero refreshing
         </p>
       </div>
 
-      {/* ── How it works ── */}
+      {/* How it works */}
       <section className="mx-auto max-w-6xl px-4 py-16">
         <h2 className="headline mb-10 text-3xl sm:text-4xl">
           How it works<span className="text-go">.</span>
@@ -129,7 +136,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Closing CTA ── */}
+      {/* Closing CTA */}
       <section className="mx-auto max-w-6xl px-4 pb-20">
         <div className="relative overflow-hidden rounded-xl border border-ink bg-moss p-8 sm:p-12">
           <img
@@ -146,7 +153,7 @@ export default function Landing() {
             </h2>
             <button
               type="button"
-              onClick={() => void signInWithDiscord()}
+              onClick={signInWithDiscord}
               className="btn-go mt-8 border-paper px-6 py-3 text-base shadow-[3px_3px_0_0_var(--color-paper)]"
             >
               Get your feed
@@ -155,7 +162,7 @@ export default function Landing() {
           </div>
         </div>
         <p className="rule-dotted mt-10 pt-6 text-center font-mono text-xs text-ink-faint">
-          GOSHA.jobs — built by students, for students · gosha.bogdantruta.com
+          GOSHA.jobs - built by students, for students / gosha.bogdantruta.com
           <br />
           made by{' '}
           <a
