@@ -12,3 +12,4 @@ web/node_modules/
 web/dist/
 shots/
 .playwright-cli/
+migration/
