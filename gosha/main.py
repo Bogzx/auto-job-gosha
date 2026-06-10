@@ -99,6 +99,22 @@ async def main() -> None:
         replace_existing=True,
     )
 
+    # Expire postings whose URLs 404 (daily)
+    async def _deadlink_tick() -> None:
+        from gosha.deadlinks import check_dead_links
+        try:
+            await check_dead_links()
+        except Exception as exc:
+            log.warning("Dead-link check failed: %s", exc)
+
+    scheduler.add_job(
+        _deadlink_tick,
+        trigger=IntervalTrigger(hours=24),
+        id="deadlink_check",
+        name="Dead job link detection",
+        replace_existing=True,
+    )
+
     # Health-check tunnels every 5 minutes and restart dead ones
     if settings.vps_list:
         scheduler.add_job(
