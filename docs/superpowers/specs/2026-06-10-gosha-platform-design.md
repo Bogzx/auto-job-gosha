@@ -135,7 +135,12 @@ Homegrown, privacy-friendly (no third-party): API middleware + SPA pageview ping
 - Backend: pytest — API routes via httpx AsyncClient with mocked Discord OAuth; unit tests for ranking, outbox, dedup, salary normalization; adapter tests on recorded fixtures. Existing bot test suite must keep passing.
 - Frontend: Vitest + React Testing Library for core components (job card, filters, tracker board); Playwright smoke flow optional later.
 
-## 13. Out of scope (explicitly)
+## 13. Amendments (planning-time)
+
+- **pgvector dropped (YAGNI):** embeddings stored as `LargeBinary` float32, scored with numpy brute force — identical behavior on SQLite dev and Postgres prod; revisit only past ~100k jobs.
+- **Alembic dropped:** the existing hand-rolled idempotent `migrate.py` is extended (dialect-aware) instead; it already has test coverage and the migration surface is small.
+
+## 14. Out of scope (explicitly)
 
 - Payments/monetization (tier system stays config-only)
 - Email delivery (join-server funnel chosen instead)
