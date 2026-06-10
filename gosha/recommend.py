@@ -1,0 +1,187 @@
+"""Personalized job feed: rank jobs by similarity to the user's CV + feedback.
+
+The user vector is the CV embedding, nudged toward jobs they marked
+"interested" and away from "not_relevant" ones. Scoring is numpy cosine
+over the candidate set (active jobs from the last FEED_WINDOW_DAYS).
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+
+import numpy as np
+from sqlalchemy import select
+
+from gosha.database import get_session
+from gosha.embeddings import bytes_to_vec
+from gosha.models import Application, Job, User, UserJob
+
+log = logging.getLogger(__name__)
+
+FEED_WINDOW_DAYS = 30
+FEEDBACK_WEIGHT = 0.3
+
+_WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z+#.]{2,}")
+
+# Words that overlap in almost every CV/job pair — useless as "why this
+# matches" explanations. Small curated EN+RO set, not a full NLP stopword list.
+_STOPWORDS = frozenset({
+    "and", "the", "with", "for", "you", "are", "our", "your", "will",
+    "have", "has", "this", "that", "from", "not", "all", "can", "who",
+    "what", "when", "where", "how", "than", "then", "them", "they",
+    "experience", "experienced", "skills", "skill", "work", "working",
+    "team", "teams", "job", "jobs", "role", "company", "position",
+    "looking", "join", "about", "into", "able", "best", "well", "good",
+    "new", "use", "using", "used", "need", "needs", "plus", "daily",
+    "etc", "more", "most", "other", "also", "must", "should", "would",
+    "si", "sau", "este", "sunt", "pentru", "care", "din", "intr", "una",
+    "echipa", "companie", "rol", "munca", "experienta", "abilitati",
+})
+
+
+def match_reasons(cv_text: str, job_text: str, top_k: int = 3) -> list[str]:
+    """Top informative terms shared by the CV and the job text.
+
+    Ranked by term frequency in the job text (what the employer emphasizes),
+    ties broken alphabetically for determinism.
+    """
+    cv_tokens = {
+        t.lower() for t in _WORD_RE.findall(cv_text or "")
+    } - _STOPWORDS
+    if not cv_tokens:
+        return []
+
+    job_counts = Counter(
+        t.lower() for t in _WORD_RE.findall(job_text or "")
+    )
+    shared = [
+        (count, token)
+        for token, count in job_counts.items()
+        if token in cv_tokens
+    ]
+    shared.sort(key=lambda pair: (-pair[0], pair[1]))
+    return [token for _, token in shared[:top_k]]
+
+
+async def build_user_vector(user_id: int) -> np.ndarray | None:
+    """CV embedding refined by feedback; None when there is no signal at all."""
+    async with get_session() as session:
+        user = await session.get(User, user_id)
+        if user is None:
+            return None
+
+        base = bytes_to_vec(user.cv_embedding) if user.cv_embedding else None
+
+        result = await session.execute(
+            select(UserJob.feedback, Job.embedding)
+            .join(Job, UserJob.job_id == Job.id)
+            .where(
+                UserJob.user_id == user_id,
+                UserJob.feedback.isnot(None),
+                Job.embedding.isnot(None),
+            )
+        )
+        liked: list[np.ndarray] = []
+        disliked: list[np.ndarray] = []
+        for feedback, raw in result.all():
+            if feedback == "interested":
+                liked.append(bytes_to_vec(raw))
+            elif feedback == "not_relevant":
+                disliked.append(bytes_to_vec(raw))
+
+    if base is None and not liked and not disliked:
+        return None
+
+    vector = base.astype(np.float64) if base is not None else np.zeros(
+        len(liked[0]) if liked else len(disliked[0]), dtype=np.float64
+    )
+    if liked:
+        vector = vector + FEEDBACK_WEIGHT * np.mean(liked, axis=0)
+    if disliked:
+        vector = vector - FEEDBACK_WEIGHT * np.mean(disliked, axis=0)
+
+    norm = np.linalg.norm(vector)
+    if norm == 0:
+        return None
+    return (vector / norm).astype(np.float32)
+
+
+async def get_feed(
+    user_id: int, page: int = 1, per_page: int = 50,
+) -> tuple[list[tuple[Job, float | None, list[str]]], int]:
+    """Ranked (job, score, reasons) for the user's feed, plus total count.
+
+    Jobs the user already gave feedback on or applied to are excluded.
+    Without any personalization signal, falls back to newest-first with
+    None scores.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=FEED_WINDOW_DAYS)
+    user_vector = await build_user_vector(user_id)
+
+    async with get_session() as session:
+        seen_result = await session.execute(
+            select(UserJob.job_id).where(
+                UserJob.user_id == user_id, UserJob.feedback.isnot(None)
+            )
+        )
+        excluded_ids = {row[0] for row in seen_result.all()}
+        applied_result = await session.execute(
+            select(Application.job_id).where(Application.user_id == user_id)
+        )
+        excluded_ids.update(row[0] for row in applied_result.all())
+
+        stmt = select(Job).where(
+            Job.is_active.is_(True),
+            Job.first_seen_at >= cutoff,
+        )
+        if user_vector is not None:
+            stmt = stmt.where(Job.embedding.isnot(None))
+        if excluded_ids:
+            stmt = stmt.where(Job.id.notin_(excluded_ids))
+
+        result = await session.execute(stmt)
+        candidates = list(result.scalars().all())
+
+        cv_text = ""
+        if user_vector is not None:
+            user = await session.get(User, user_id)
+            if user is not None and user.cv_embedding:
+                # CV text lives on disk (gosha/cover_letter.py storage);
+                # reasons need the text, loaded lazily to avoid IO when
+                # there is no CV.
+                from gosha.cover_letter import load_cv
+                cv_text = load_cv(user_id) or ""
+
+    if user_vector is None:
+        candidates.sort(
+            key=lambda j: j.first_seen_at or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        total = len(candidates)
+        start = (page - 1) * per_page
+        return (
+            [(job, None, []) for job in candidates[start : start + per_page]],
+            total,
+        )
+
+    scored: list[tuple[Job, float | None, list[str]]] = []
+    if candidates:
+        matrix = np.stack([bytes_to_vec(j.embedding) for j in candidates])
+        scores = matrix @ user_vector
+        order = np.argsort(-scores)
+        for idx in order:
+            job = candidates[int(idx)]
+            score = float(max(0.0, min(1.0, scores[int(idx)])))
+            reasons = (
+                match_reasons(cv_text, f"{job.title} {job.description or ''}")
+                if cv_text
+                else []
+            )
+            scored.append((job, score, reasons))
+
+    total = len(scored)
+    start = (page - 1) * per_page
+    return scored[start : start + per_page], total
