@@ -255,6 +255,26 @@ class TestMatchesExperienceLevel:
         assert matches_experience_level("Junior Dev", ["intern", "junior"]) is True
         assert matches_experience_level("Senior Dev", ["intern", "junior"]) is False
 
+    # Production complaint (2026-06-10): intern-only searches received
+    # junior roles. "intern" must mean internships/traineeships ONLY.
+
+    def test_intern_rejects_junior_titles(self):
+        assert matches_experience_level("Junior Developer", ["intern"]) is False
+        assert matches_experience_level("Junior Software Engineer", ["intern"]) is False
+        assert matches_experience_level("Graduate Software Engineer", ["intern"]) is False
+        assert matches_experience_level("Entry Level Developer", ["intern"]) is False
+
+    def test_intern_accepts_trainee_variants(self):
+        assert matches_experience_level("Software Trainee", ["intern"]) is True
+        assert matches_experience_level("Engineering Internship 2026", ["intern"]) is True
+        assert matches_experience_level("Summer Intern - Backend", ["intern"]) is True
+        # Romanian boards use these
+        assert matches_experience_level("Practicant IT", ["intern"]) is True
+        assert matches_experience_level("Stagiar dezvoltare software", ["intern"]) is True
+
+    def test_junior_still_rejects_intern_only_titles(self):
+        assert matches_experience_level("Software Engineer Intern", ["junior"]) is False
+
 
 # ── city_only ─────────────────────────────────────────────────────────
 

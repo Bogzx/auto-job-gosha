@@ -381,8 +381,21 @@ def matches_salary_minimum(
     return True  # No salary data — include
 
 
+# Strictly internships/traineeships — NOT junior/graduate/entry-level.
+# Includes the Romanian terms local boards use (stagiar, practicant).
+INTERN_RE = re.compile(
+    r"(?i)\b(?:intern(?:ship)?|trainee|traineeship|apprentice|placement|"
+    r"co.?op|summer|academy|stagi(?:ar|u)|practicant\w*|practica\b)"
+)
+
+
 def matches_experience_level(title: str, levels: list[str]) -> bool:
-    """Check if a job title matches the requested experience levels."""
+    """Check if a job title matches the requested experience levels.
+
+    "intern" means internships/traineeships only — junior roles need the
+    "junior" level explicitly (production complaint: intern-only searches
+    were receiving Junior Developer postings).
+    """
     if not levels or "any" in levels:
         return True
     title_lower = str(title).lower() if title else ""
@@ -390,10 +403,10 @@ def matches_experience_level(title: str, levels: list[str]) -> bool:
     for level in levels:
         level = level.lower()
         if level in ("intern", "internship"):
-            if ENTRY_LEVEL_RE.search(title_lower):
+            if INTERN_RE.search(title_lower):
                 return True
         elif level == "junior":
-            if re.search(r"\b(?:junior|jr\.?|entry.?level|graduate|trainee)\b", title_lower):
+            if re.search(r"\b(?:junior|jr\.?|entry.?level|graduate|absolvent\w*)\b", title_lower):
                 return True
         elif level == "mid":
             # Mid-level: not entry-level and not senior
