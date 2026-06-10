@@ -8,3 +8,5 @@ __pycache__/
 venv/
 .zip
 .superpowers/
+web/node_modules/
+web/dist/
