@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import time
 from urllib.parse import urlencode
 
 import httpx
@@ -49,13 +50,49 @@ def _verify_state(state: str) -> bool:
         return False
 
 
+# States are single-use: once a callback consumes one, replays fail.
+# In-memory is fine — one API process, and states expire in 10 minutes.
+_consumed_states: dict[str, float] = {}
+
+
+def _consume_state(state: str) -> bool:
+    """Mark a state used; False when it was already consumed."""
+    now = time.monotonic()
+    for key, expiry in list(_consumed_states.items()):
+        if expiry < now:
+            del _consumed_states[key]
+    if state in _consumed_states:
+        return False
+    _consumed_states[state] = now + STATE_MAX_AGE
+    return True
+
+
+def _state_allowed(state: str, cookie_value: str) -> bool:
+    """Decide whether a callback state is acceptable.
+
+    - The state must carry a valid, unexpired signature and be unused.
+    - Normally it must also appear in the state cookie (CSRF binding).
+      The cookie keeps the last few states so a second sign-in click
+      doesn't invalidate a pending authorize window.
+    - When the cookie is ABSENT entirely we accept the state anyway:
+      the desktop Discord app opens the callback in the system default
+      browser, which may not be the one the user clicked in. Signature,
+      TTL, and single-use still bound the risk.
+    """
+    if not state or not _verify_state(state) or not _consume_state(state):
+        return False
+    if not cookie_value:
+        return True  # cross-browser desktop app flow
+    return state in cookie_value.split("|")
+
+
 # Deep-link scheme handled by the Discord mobile app — opens the authorize
 # screen in the app instead of a browser login wall.
 APP_AUTHORIZE_URL = "discord://-/oauth2/authorize"
 
 
 @router.get("/discord/login")
-async def discord_login(format: str = ""):
+async def discord_login(request: Request, format: str = ""):
     settings = load_web_settings()
     state = make_state()
     params = urlencode({
@@ -79,9 +116,13 @@ async def discord_login(format: str = ""):
     else:
         response = RedirectResponse(f"{AUTHORIZE_URL}?{params}", status_code=307)
 
+    # Keep the last few states so concurrent sign-in attempts (second
+    # click, prefetch refresh) don't orphan a pending authorize window.
+    previous = request.cookies.get(OAUTH_STATE_COOKIE, "")
+    recent = [state] + [s for s in previous.split("|") if s][:2]
     response.set_cookie(
         OAUTH_STATE_COOKIE,
-        state,
+        "|".join(recent),
         max_age=STATE_MAX_AGE,
         httponly=True,
         samesite="lax",
@@ -96,7 +137,7 @@ async def discord_callback(request: Request, code: str = "", state: str = "") ->
     settings = load_web_settings()
 
     cookie_state = request.cookies.get(OAUTH_STATE_COOKIE, "")
-    if not state or state != cookie_state or not _verify_state(state):
+    if not _state_allowed(state, cookie_state):
         raise ApiError(400, "invalid_state", "OAuth state check failed — try signing in again.")
     if not code:
         raise ApiError(400, "invalid_request", "Discord did not return a code.")

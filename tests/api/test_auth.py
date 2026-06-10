@@ -156,6 +156,64 @@ async def test_callback_state_cookie_mismatch_rejected(client):
 
 
 @pytest.mark.asyncio
+@respx.mock
+async def test_callback_without_cookie_accepts_valid_state_once(client, monkeypatch):
+    """Desktop app flow: Discord opens the callback in the DEFAULT browser,
+    which may have no state cookie. Valid signed states are accepted there —
+    but only once (replay rejected)."""
+    monkeypatch.setenv("DISCORD_TOKEN", "bot-token")
+    _mock_discord()
+    state, _cookies = _state_for(client)
+
+    resp = await client.get(
+        "/api/v1/auth/discord/callback",
+        params={"code": "c", "state": state},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 307  # login succeeded without the cookie
+
+    replay = await client.get(
+        "/api/v1/auth/discord/callback",
+        params={"code": "c", "state": state},
+        follow_redirects=False,
+    )
+    assert replay.status_code == 400  # single-use
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_second_login_click_keeps_first_state_valid(client, monkeypatch):
+    """Clicking sign-in twice must not orphan the first authorize window:
+    the cookie keeps recent states, so completing with the FIRST one works."""
+    monkeypatch.setenv("DISCORD_TOKEN", "bot-token")
+    _mock_discord()
+
+    first = await client.get("/api/v1/auth/discord/login", follow_redirects=False)
+    first_state = first.headers["location"].split("state=")[1].split("&")[0]
+    second = await client.get(
+        "/api/v1/auth/discord/callback".replace("/callback", "/login"),
+        cookies={"gosha_oauth_state": first_state},
+        follow_redirects=False,
+    )
+    cookie_header = next(
+        h for h in second.headers.get_list("set-cookie") if "gosha_oauth_state" in h
+    )
+    combined_cookie = cookie_header.split("gosha_oauth_state=")[1].split(";")[0]
+    # URL-decode the pipe separator if the framework encoded it
+    from urllib.parse import unquote
+    combined_cookie = unquote(combined_cookie)
+    assert first_state in combined_cookie.split("|")
+
+    resp = await client.get(
+        "/api/v1/auth/discord/callback",
+        params={"code": "c", "state": first_state},
+        cookies={"gosha_oauth_state": combined_cookie},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 307
+
+
+@pytest.mark.asyncio
 async def test_login_json_format_returns_app_deep_link(client):
     resp = await client.get("/api/v1/auth/discord/login", params={"format": "json"})
     assert resp.status_code == 200
