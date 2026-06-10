@@ -1,0 +1,19 @@
+# Local prod-parity Postgres for development.
+#   docker compose -f docker-compose.dev.yml up -d
+#   DATABASE_URL=postgresql+asyncpg://gosha:gosha@localhost:5433/gosha
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gosha-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gosha
+      POSTGRES_USER: gosha
+      POSTGRES_PASSWORD: gosha
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+volumes:
+  pgdata-dev:

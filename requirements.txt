@@ -12,13 +12,17 @@ numpy>=1.24
 # Semantic matching (optional — falls back to regex if missing)
 sentence-transformers>=3.0
 
-# Web dashboard
+# Web dashboard + public API
 fastapi>=0.100
 uvicorn>=0.20
 jinja2>=3.1
 python-multipart>=0.0.6
 httpx>=0.24
 itsdangerous>=2.1
+slowapi>=0.1.9
+
+# Postgres driver (prod database; SQLite works for dev)
+asyncpg>=0.29
 
 # Email delivery (optional)
 # aiosmtplib>=2.0

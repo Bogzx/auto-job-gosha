@@ -50,6 +50,64 @@ class Settings:
     admin_user_ids: set[int] = field(default_factory=set)
 
 
+@dataclass(frozen=True)
+class WebSettings:
+    """Settings for the public web API (Discord OAuth, sessions)."""
+
+    session_secret: str
+    discord_client_id: str
+    discord_client_secret: str
+    redirect_uri: str
+    public_base_url: str
+    cookie_secure: bool
+    guild_id: int = 0
+    invite_url: str = ""
+
+
+def load_web_settings() -> WebSettings:
+    """Build WebSettings from the current environment.
+
+    Raises RuntimeError when a required variable is missing so the API
+    fails fast at startup instead of half-working.
+    """
+    secret = os.getenv("SESSION_SECRET")
+    client_id = os.getenv("DISCORD_CLIENT_ID")
+    client_secret = os.getenv("DISCORD_CLIENT_SECRET")
+    missing = [
+        name
+        for name, value in (
+            ("SESSION_SECRET", secret),
+            ("DISCORD_CLIENT_ID", client_id),
+            ("DISCORD_CLIENT_SECRET", client_secret),
+        )
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(
+            f"Missing required environment variables: {', '.join(missing)}"
+        )
+
+    public_base_url = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
+    redirect_uri = os.getenv(
+        "DISCORD_REDIRECT_URI",
+        f"{public_base_url}/api/v1/auth/discord/callback",
+    )
+
+    guild_raw = os.getenv("DISCORD_GUILD_ID", "0")
+    guild_id = int(guild_raw) if guild_raw.isdigit() else 0
+
+    return WebSettings(
+        session_secret=secret,
+        discord_client_id=client_id,
+        discord_client_secret=client_secret,
+        redirect_uri=redirect_uri,
+        public_base_url=public_base_url,
+        cookie_secure=public_base_url.startswith("https"),
+        guild_id=guild_id,
+        invite_url=os.getenv("DISCORD_INVITE_URL", ""),
+    )
+
+
 _HOSTNAME_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$")
 _IP_RE = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
 _USERNAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_.-]*$")
