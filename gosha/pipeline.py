@@ -78,6 +78,7 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
                 if "currency" in row and pd.notna(row.get("currency"))
                 else None
             )
+            posted_at = _parse_datetime(row, "date_posted")
 
             result = await session.execute(select(Job).where(Job.url == url))
             existing = result.scalar_one_or_none()
@@ -99,6 +100,8 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
                     existing.salary_max = salary_max
                 if salary_currency:
                     existing.salary_currency = salary_currency
+                if posted_at is not None:
+                    existing.posted_at = posted_at
                 jobs.append(existing)
             else:
                 job = Job(
@@ -113,6 +116,7 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
                     source=source,
                     first_seen_at=now,
                     last_seen_at=now,
+                    posted_at=posted_at,
                 )
                 session.add(job)
                 jobs.append(job)
@@ -169,6 +173,11 @@ async def run_scrape_stage(
             jobs = await upsert_jobs(df)
             all_jobs.extend(jobs)
 
+    # Extra sources (Romanian boards + RemoteOK): direct APIs, no proxies.
+    # Additive for every subscription regardless of its boards list.
+    extra_jobs = await _scrape_extra_sources(scrape_combos)
+    all_jobs.extend(extra_jobs)
+
     # Deduplicate by ID
     seen_ids: set[int] = set()
     unique: list[Job] = []
@@ -179,6 +188,54 @@ async def run_scrape_stage(
 
     log.info("Scrape stage complete: %d unique jobs", len(unique))
     return unique
+
+
+# Keyword expansion can fan a broad term into ~19 searches; the extra
+# sources are cheap JSON/HTML endpoints but we still cap politely.
+MAX_EXTRA_TERMS = 6
+
+
+async def _scrape_extra_sources(scrape_combos: dict[tuple, list[str]]) -> list[Job]:
+    """Run the plugin scrapers for every (keyword, location) combo."""
+    from gosha.filters import expand_keyword
+    from gosha.scrapers.base import SearchQuery
+
+    try:
+        from gosha.scrapers.registry import get_extra_scrapers
+        scrapers = get_extra_scrapers()
+    except Exception as exc:
+        log.warning("Extra scrapers unavailable: %s", exc)
+        return []
+
+    collected: list[Job] = []
+    for (keyword, location, _boards, max_age_days), keywords in scrape_combos.items():
+        terms = expand_keyword(keyword)[:MAX_EXTRA_TERMS]
+        for scraper in scrapers:
+            frames: list[pd.DataFrame] = []
+            for term in terms:
+                query = SearchQuery(
+                    keyword=term, location=location, max_age_days=max_age_days,
+                )
+                try:
+                    raw_jobs = await scraper.search(query)
+                except Exception as exc:  # adapters shouldn't raise; belt & braces
+                    log.warning("%s scraper failed for %r: %s", scraper.name, term, exc)
+                    raw_jobs = []
+                if raw_jobs:
+                    frames.append(pd.DataFrame([r.to_record() for r in raw_jobs]))
+
+            if not frames:
+                continue
+            df = pd.concat(frames, ignore_index=True)
+            df = df.drop_duplicates(subset=["job_url"], keep="first")
+            df = filter_dataframe(df, keywords)
+            if not df.empty:
+                jobs = await upsert_jobs(df)
+                collected.extend(jobs)
+                log.info(
+                    "%s: %d jobs for %r in %r", scraper.name, len(jobs), keyword, location,
+                )
+    return collected
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -593,5 +650,26 @@ def _parse_float(row: pd.Series, col: str) -> float | None:
         return None
     try:
         return float(row[col])
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_datetime(row: pd.Series, col: str) -> datetime | None:
+    """Safely parse a datetime (or date) from a DataFrame row."""
+    if col not in row:
+        return None
+    value = row.get(col)
+    try:
+        if value is None or pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, pd.Timestamp):
+        return value.to_pydatetime()
+    try:
+        parsed = pd.to_datetime(str(value), utc=True)
+        return parsed.to_pydatetime()
     except (ValueError, TypeError):
         return None

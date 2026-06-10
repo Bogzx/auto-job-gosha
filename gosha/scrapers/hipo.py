@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 
 import httpx
 
@@ -21,6 +22,11 @@ log = logging.getLogger(__name__)
 
 BASE_URL = "https://www.hipo.ro"
 LISTING_URL = BASE_URL + "/locuri-de-munca/cautajob/IT-Software/{city}"
+
+# Hipo ignores keywords (city catalog pages), so keyword-expanded searches
+# would refetch the same page — cache per city for a few minutes.
+CACHE_TTL_SECONDS = 600
+_cache: dict[str, tuple[float, str]] = {}
 
 # City segment names hipo uses in its catalog URLs
 CITY_SEGMENTS = {
@@ -83,12 +89,19 @@ class HipoScraper:
         if segment is None:
             return []  # hipo is Romania-only
         try:
-            async with httpx.AsyncClient(
-                headers=DEFAULT_HEADERS, timeout=HTTP_TIMEOUT, follow_redirects=True,
-            ) as client:
-                resp = await client.get(LISTING_URL.format(city=segment))
-                resp.raise_for_status()
-                return _parse(resp.text, segment.replace("-", " "))
+            now = time.monotonic()
+            cached = _cache.get(segment)
+            if cached is not None and now - cached[0] < CACHE_TTL_SECONDS:
+                html = cached[1]
+            else:
+                async with httpx.AsyncClient(
+                    headers=DEFAULT_HEADERS, timeout=HTTP_TIMEOUT, follow_redirects=True,
+                ) as client:
+                    resp = await client.get(LISTING_URL.format(city=segment))
+                    resp.raise_for_status()
+                    html = resp.text
+                _cache[segment] = (now, html)
+            return _parse(html, segment.replace("-", " "))
         except Exception as exc:
             log.warning("Hipo scrape failed for %r: %s", query.location, exc)
             return []
