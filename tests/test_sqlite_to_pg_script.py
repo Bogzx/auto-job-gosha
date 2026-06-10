@@ -92,6 +92,52 @@ async def test_copy_all_moves_every_table(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_copy_all_sanitizes_broken_foreign_keys(tmp_path):
+    """Old SQLite data can reference deleted rows — nullable FKs get nulled,
+    rows with broken required FKs get dropped."""
+    src_url = f"sqlite+aiosqlite:///{tmp_path / 'src3.db'}"
+    dst_url = f"sqlite+aiosqlite:///{tmp_path / 'dst3.db'}"
+
+    src_engine = create_async_engine(src_url)
+    async with src_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(src_engine, expire_on_commit=False)
+    async with factory() as session:
+        user = User(discord_user_id=222)
+        session.add(user)
+        await session.flush()
+        job = Job(url="https://x/ok", title="Dev", company="A", source="indeed")
+        session.add(job)
+        await session.flush()
+        session.add_all([
+            # subscription_id=999 doesn't exist -> nulled (nullable FK)
+            UserJob(user_id=user.id, job_id=job.id, subscription_id=999),
+        ])
+        await session.commit()
+        # job_id=12345 doesn't exist -> row dropped (required FK).
+        # Insert via raw SQL since SQLite won't enforce it here.
+        from sqlalchemy import text
+        await session.execute(text(
+            f"INSERT INTO applications (user_id, job_id, status, source, applied_at, updated_at) "
+            f"VALUES ({user.id}, 12345, 'applied', 'discord', '2026-01-01', '2026-01-01')"
+        ))
+        await session.commit()
+    await src_engine.dispose()
+
+    copied = await copy_all(src_url, dst_url)
+
+    assert copied["user_jobs"] == 1
+    assert copied["applications"] == 0  # broken row dropped
+
+    dst_engine = create_async_engine(dst_url)
+    dst_factory = async_sessionmaker(dst_engine, expire_on_commit=False)
+    async with dst_factory() as session:
+        uj = (await session.execute(select(UserJob))).scalar_one()
+        assert uj.subscription_id is None  # broken ref nulled
+    await dst_engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_copy_all_refuses_nonempty_destination(tmp_path):
     src_url = f"sqlite+aiosqlite:///{tmp_path / 'src2.db'}"
     dst_url = f"sqlite+aiosqlite:///{tmp_path / 'dst2.db'}"
