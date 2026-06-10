@@ -235,6 +235,25 @@ TECH_RE = re.compile(
     r"tech(?:nolog)?|computer|comput|informatic)\b"
 )
 
+# Titles that match TECH_RE only through generic words ("engineer",
+# "technology", "AI") but belong to other industries. Observed leaking
+# into production deliveries: industrial engineering and marketing roles.
+NON_CS_DOMAIN_RE = re.compile(
+    r"(?i)\b(?:maintenance|mechanic(?:al)?|electric(?:al|ian)?|civil|chemical|"
+    r"welding|hvac|automotive|manufacturing|process\s+technology|"
+    r"marketing|sales|vanzari|v[âa]nz[ăa]ri|antreprenorial\w*|"
+    r"recruit(?:er|ment)|accountant|contabil\w*|hr\b|logistics?|warehouse)\b"
+)
+
+# Unambiguous CS signals that override a negative-domain hit
+# ("Junior Software Engineer - Process Automation" is still ours).
+STRONG_CS_RE = re.compile(
+    r"(?i)\b(?:software|develop(?:er|ment)|programm(?:er|ing)|"
+    r"front.?end|back.?end|full.?stack|devops|cyber|"
+    r"python|java(?:script)?|typescript|\bqa\b|\bsdet\b|"
+    r"data\s+(?:scien|analy|engineer)|machine.?learning|informatic\w*)"
+)
+
 
 # ── Pure functions ────────────────────────────────────────────────────
 
@@ -305,6 +324,11 @@ def title_is_relevant(title: str, keyword: str) -> bool:
             return False
     if want_tech:
         if not TECH_RE.search(title):
+            return False
+        # Generic words ("engineer", "technology", "AI") also appear in
+        # industrial/marketing roles — reject those unless the title
+        # carries an unambiguous CS signal.
+        if NON_CS_DOMAIN_RE.search(title) and not STRONG_CS_RE.search(title):
             return False
     return True
 

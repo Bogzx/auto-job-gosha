@@ -139,6 +139,32 @@ class TestTitleIsRelevant:
     def test_empty_title_rejected(self):
         assert title_is_relevant("", "software engineering") is False
 
+    # Real leaks observed in production deliveries (2026-06-10): generic
+    # words like "engineer"/"technology"/"AI" let non-CS roles through.
+
+    def test_industrial_engineering_rejected_for_tech(self):
+        assert title_is_relevant(
+            "Junior Process Technology Engineer - Zalau", "computer science internship"
+        ) is False
+        assert title_is_relevant(
+            "Junior Maintenance Engineer (Mech. or Electrical)", "computer science internship"
+        ) is False
+
+    def test_marketing_with_ai_buzzword_rejected_for_tech(self):
+        assert title_is_relevant(
+            "Junior Marketing & Proiecte antreprenoriale si AI", "computer science internship"
+        ) is False
+
+    def test_strong_cs_signal_overrides_negative_domain(self):
+        # "process" appears, but this is unambiguously a software role
+        assert title_is_relevant(
+            "Junior Software Engineer - Process Automation", "computer science internship"
+        ) is True
+        # Marketing-tech crossover with an explicit developer signal stays
+        assert title_is_relevant(
+            "Junior Web Developer (Marketing Team)", "computer science internship"
+        ) is True
+
 
 # ── matches_excluded_keywords ─────────────────────────────────────────
 
