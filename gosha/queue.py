@@ -13,13 +13,13 @@ while keeping stages decoupled.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import select, update, and_, func
+from sqlalchemy import func, select
 
 from gosha.database import get_session
-from gosha.models import Job, Subscription, User, UserJob
+from gosha.models import Job, User, UserJob
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ async def get_fresh_jobs(since: datetime) -> list[Job]:
     async with get_session() as session:
         result = await session.execute(
             select(Job)
-            .where(Job.last_seen_at >= since, Job.is_active == True)
+            .where(Job.last_seen_at >= since, Job.is_active.is_(True))
             .order_by(Job.last_seen_at.desc())
         )
         return list(result.scalars().all())

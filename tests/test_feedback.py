@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio

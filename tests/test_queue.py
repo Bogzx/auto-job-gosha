@@ -6,10 +6,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from gosha.models import Job, Subscription, User, UserJob
+from gosha.models import Job, User, UserJob
 
 
 @pytest_asyncio.fixture

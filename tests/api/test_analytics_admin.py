@@ -8,7 +8,7 @@ import pytest
 from sqlalchemy import select
 
 from gosha.events import Event
-from gosha.models import Job, User
+from gosha.models import Job
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,7 @@
 import {
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
   type InfiniteData,
 } from '@tanstack/react-query'
@@ -57,6 +58,16 @@ function patchJobEverywhere(
         })),
       },
   )
+}
+
+/** Full job record (untruncated description) for the detail pane. */
+export function useJobDetail(jobId: number | undefined) {
+  return useQuery({
+    queryKey: ['job', jobId],
+    queryFn: () => api.get<Job>(`/jobs/${jobId}`),
+    enabled: jobId != null,
+    staleTime: 5 * 60_000,
+  })
 }
 
 export function useFeedback() {

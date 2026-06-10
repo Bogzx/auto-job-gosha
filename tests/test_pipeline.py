@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pandas as pd
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from gosha.models import Base, Job, Subscription, User, UserJob
+from gosha.models import Job, Subscription, User, UserJob
 
 # These tests need to monkeypatch gosha.database so the pipeline functions
 # use the test DB instead of the global one.

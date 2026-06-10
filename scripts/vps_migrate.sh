@@ -1,15 +1,15 @@
-#!/usr/bin/env bash
-# Run on the NEW VPS: debug postgres auth, then migrate SQLite -> Postgres.
-set -e
+# One-time SQLite -> Postgres migration, run on the production server.
+#   bash scripts/vps_migrate.sh
+# WARNING: wipes the Postgres tables first (RESTART IDENTITY CASCADE) —
+# only meant for the initial cutover from an old SQLite install.
 cd ~/gosha
-set -a; source .env; set +a
-echo "env password length: ${#POSTGRES_PASSWORD}"
-echo "container password length:"
-docker exec gosha-postgres sh -c 'echo ${#POSTGRES_PASSWORD}'
-echo "--- direct psql test ---"
-docker exec gosha-postgres psql -U gosha -d gosha -c "select count(*) as users from users;" | tail -3
-echo "--- migration ---"
+PGPASS=$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2)
+echo "--- wiping destination tables ---"
+docker exec gosha-postgres psql -U gosha -d gosha -c "TRUNCATE users, jobs, subscriptions, user_jobs, applications, cover_letters, events, outbox RESTART IDENTITY CASCADE;"
+echo "--- migrating ---"
 docker compose -f docker-compose.prod.yml run --rm -e PYTHONPATH=/app bot \
   python scripts/migrate_sqlite_to_postgres.py \
   sqlite+aiosqlite:///data/jobs.db \
-  "postgresql+asyncpg://gosha:${POSTGRES_PASSWORD}@postgres:5432/gosha" 2>&1 | tail -12
+  "postgresql+asyncpg://gosha:${PGPASS}@postgres:5432/gosha" 2>&1 | tail -14
+echo "--- post-migration counts ---"
+docker exec gosha-postgres psql -U gosha -d gosha -c "select (select count(*) from users) as users, (select count(*) from subscriptions) as subs, (select count(*) from jobs) as jobs, (select count(*) from user_jobs) as deliveries, (select count(*) from applications) as apps, (select count(*) from cover_letters) as letters;"

@@ -18,9 +18,8 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any
 
-from sqlalchemy import DateTime, Integer, String, Text, select, func
+from sqlalchemy import DateTime, Integer, String, Text, func, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from gosha.models import Base

@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from gosha.models import Base, Job, Subscription, User, UserJob
+from gosha.models import Base, Job, Subscription, User
 
 # Use in-memory SQLite for all tests — fast and isolated.
 TEST_DB_URL = "sqlite+aiosqlite:///:memory:"

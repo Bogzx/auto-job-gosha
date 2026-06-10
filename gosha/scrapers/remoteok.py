@@ -23,14 +23,19 @@ CACHE_TTL_SECONDS = 600
 
 _cache: tuple[float, list[dict]] | None = None
 
+_BREAK_RE = re.compile(r"</p>|</div>|</li>|<br\s*/?>", re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 
 REMOTE_LOCATIONS = {"remote", "europe", "eu", "anywhere", "worldwide"}
 
 
 def _strip_html(html: str) -> str:
-    text = _TAG_RE.sub(" ", html or "")
-    return re.sub(r"\s{2,}", " ", text).strip()
+    """HTML to readable plain text, keeping paragraph breaks."""
+    text = _BREAK_RE.sub("\n", html or "")
+    text = _TAG_RE.sub(" ", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def _parse(feed: list[dict], query: SearchQuery) -> list[RawJob]:
@@ -70,7 +75,7 @@ def _parse(feed: list[dict], query: SearchQuery) -> list[RawJob]:
             title=str(item.get("position", "")),
             company=str(item.get("company") or "Unknown"),
             location=str(item.get("location") or "Remote") or "Remote",
-            description=_strip_html(str(item.get("description", "")))[:5000],
+            description=_strip_html(str(item.get("description", "")))[:20000],
             salary_min=salary_min or None,
             salary_max=salary_max or None,
             salary_currency="USD" if (salary_min or salary_max) else None,

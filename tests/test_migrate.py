@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import pytest_asyncio
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from gosha.models import Base
 

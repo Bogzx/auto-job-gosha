@@ -1,4 +1,4 @@
-"""Tests for the semantic matching engine."""
+﻿"""Tests for the semantic matching engine."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from gosha.matching import (
     cosine_similarity,
     cosine_similarity_batch,
 )
-
 
 # ── Pure function tests (no model needed) ─────────────────────────────
 
@@ -128,7 +127,7 @@ class TestSemanticMatcher:
 
 def _has_sentence_transformers() -> bool:
     try:
-        import sentence_transformers
+        import sentence_transformers  # noqa: F401 - availability probe
         return True
     except ImportError:
         return False

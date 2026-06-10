@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 
 from gosha import llm
 from gosha.database import get_session
-from gosha.models import CoverLetter, Job, User
+from gosha.models import CoverLetter, Job
 
 log = logging.getLogger(__name__)
 
@@ -110,8 +110,8 @@ def extract_text(filename: str, content: bytes) -> str | None:
     if filename.endswith(".docx"):
         try:
             import io
-            import zipfile
             import xml.etree.ElementTree as ET
+            import zipfile
 
             # Minimal .docx text extraction without python-docx dependency
             zf = zipfile.ZipFile(io.BytesIO(content))

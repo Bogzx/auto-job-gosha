@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from sqlalchemy import select
 
 import gosha.cover_letter as cl_mod
 from gosha import embeddings
-from gosha.models import CoverLetter, Job, User
+from gosha.models import CoverLetter, Job
 
 
 @pytest.fixture(autouse=True)

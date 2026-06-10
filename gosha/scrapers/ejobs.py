@@ -29,21 +29,25 @@ PAGE_SIZE = 100
 MAX_DETAIL_FETCHES = 25
 DETAIL_CONCURRENCY = 5
 
+_BREAK_RE = re.compile(r"</p>|</div>|</li>|<br\s*/?>", re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 
 _city_names: dict[int, str] | None = None
 
 
 def _extract_description(detail: dict) -> str:
-    """Plain-text description from a /jobs/{id} payload (HTML stripped)."""
+    """Readable plain-text description from a /jobs/{id} payload."""
     details = detail.get("details") or {}
     parts = [
         details.get("jobDescription"),
         details.get("idealCandidate"),
     ]
     text = "\n\n".join(p for p in parts if p)
+    text = _BREAK_RE.sub("\n", text)
     text = _TAG_RE.sub(" ", text)
-    return re.sub(r"[ \t]{2,}", " ", text).strip()[:6000]
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()[:20000]
 
 
 async def _fetch_descriptions(

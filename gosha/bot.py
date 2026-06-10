@@ -287,7 +287,7 @@ class SubscriptionCog(commands.Cog):
                     pass  # Events are best-effort
 
                 # Build a helpful confirmation showing what will happen
-                from gosha.filters import expand_keyword, normalize_location
+                from gosha.filters import expand_keyword
 
                 kw_display = ", ".join(keywords)
                 loc_display = ", ".join(locations)
@@ -320,7 +320,7 @@ class SubscriptionCog(commands.Cog):
                     f"Use /scrape_now to get results immediately."
                 )
                 await interaction.response.send_message(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /subscribe")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -377,7 +377,7 @@ class SubscriptionCog(commands.Cog):
                 await interaction.response.send_message(
                     f"Subscription **#{id}** removed.", ephemeral=True
                 )
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /unsubscribe")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -466,7 +466,7 @@ class SubscriptionCog(commands.Cog):
                     f"Updated **#{id}**: {', '.join(changes)}",
                     ephemeral=True,
                 )
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /edit")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -523,7 +523,7 @@ class SubscriptionCog(commands.Cog):
                 await interaction.response.send_message(
                     f"Subscription **#{sub_id}** {status}.", ephemeral=True
                 )
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /pause or /resume")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -583,7 +583,7 @@ class SubscriptionCog(commands.Cog):
                 color=discord.Color.blurple(),
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /my_searches")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -660,14 +660,14 @@ class SubscriptionCog(commands.Cog):
                         f"Scrape complete — **{total}** new jobs delivered.",
                         ephemeral=True,
                     )
-                except Exception as exc:
+                except Exception:
                     log.exception("Scrape cycle failed")
                     await interaction.followup.send(
                         "Scrape failed. Check bot logs for details.", ephemeral=True
                     )
 
             asyncio.create_task(_run_and_notify())
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /scrape_now")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -679,8 +679,9 @@ class SubscriptionCog(commands.Cog):
         name="stats", description="Show your job delivery statistics"
     )
     async def stats(self, interaction: discord.Interaction) -> None:
-        from gosha.models import UserJob
         from sqlalchemy import func
+
+        from gosha.models import UserJob
 
         try:
             async with get_session() as session:
@@ -719,7 +720,7 @@ class SubscriptionCog(commands.Cog):
                 sub_count = await session.execute(
                     select(func.count(Subscription.id)).where(
                         Subscription.user_id == user.id,
-                        Subscription.is_active == True,
+                        Subscription.is_active.is_(True),
                     )
                 )
                 active_subs = sub_count.scalar() or 0
@@ -734,7 +735,7 @@ class SubscriptionCog(commands.Cog):
             embed.add_field(name="Not Relevant", value=str(not_relevant_count), inline=True)
 
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /stats")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -800,7 +801,7 @@ class SubscriptionCog(commands.Cog):
             embed.add_field(name="Scrape Interval", value=f"{interval}m", inline=True)
 
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /status")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -883,7 +884,7 @@ class SubscriptionCog(commands.Cog):
                 text=f"Jobs arrive via DM every {interval} min. Make sure your DMs are open!"
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /quickstart")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -955,7 +956,7 @@ class SubscriptionCog(commands.Cog):
                 )
 
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /upgrade")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -1162,7 +1163,7 @@ class SubscriptionCog(commands.Cog):
             )
             embed.set_footer(text="Use /applications to see all your tracked applications")
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /apply")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -1246,7 +1247,7 @@ class SubscriptionCog(commands.Cog):
                 + (f"\nNotes: {notes}" if notes else ""),
                 ephemeral=True,
             )
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /update_application")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -1324,7 +1325,7 @@ class SubscriptionCog(commands.Cog):
             )
             embed.set_footer(text="Use /update_application <job_id> to change a status")
             await interaction.response.send_message(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /applications")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -1356,7 +1357,7 @@ class SubscriptionCog(commands.Cog):
             allowed = (".pdf", ".txt", ".md", ".docx")
             if not any(file.filename.lower().endswith(ext) for ext in allowed):
                 await interaction.response.send_message(
-                    f"Unsupported file type. Please upload a PDF, DOCX, or TXT file.",
+                    "Unsupported file type. Please upload a PDF, DOCX, or TXT file.",
                     ephemeral=True,
                 )
                 return
@@ -1387,7 +1388,7 @@ class SubscriptionCog(commands.Cog):
                 f"Use `/my_cv` to preview or delete your stored CV.",
                 ephemeral=True,
             )
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /upload_cv")
             msg = "Something went wrong. Please try again later."
             if interaction.response.is_done():
@@ -1402,7 +1403,7 @@ class SubscriptionCog(commands.Cog):
         description="Preview or delete your stored CV",
     )
     async def my_cv(self, interaction: discord.Interaction) -> None:
-        from gosha.cover_letter import delete_cv, get_monthly_usage, load_cv
+        from gosha.cover_letter import get_monthly_usage, load_cv
 
         try:
             async with get_session() as session:
@@ -1469,7 +1470,7 @@ class SubscriptionCog(commands.Cog):
                     color=discord.Color.blue(),
                 )
                 await interaction.followup.send(embed=cont, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /my_cv")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -1498,7 +1499,7 @@ class SubscriptionCog(commands.Cog):
                 await interaction.response.send_message(
                     "No CV found to delete.", ephemeral=True,
                 )
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /delete_cv")
             msg = "Something went wrong. Please try again later."
             if not interaction.response.is_done():
@@ -1591,7 +1592,7 @@ class SubscriptionCog(commands.Cog):
             embed.set_footer(text=" | ".join(footer_parts))
 
             await interaction.followup.send(embed=embed, ephemeral=True)
-        except Exception as exc:
+        except Exception:
             log.exception("Error in /cover_letter")
             msg = "Something went wrong. Please try again later."
             if interaction.response.is_done():

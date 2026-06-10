@@ -109,11 +109,11 @@ async def _handle_cover_letter_interaction(
     job_id: int,
 ) -> None:
     """Handle the Cover Letter button click on job embeds."""
+    from sqlalchemy import select
+
     from gosha.cover_letter import generate_cover_letter, get_monthly_usage, load_cv
     from gosha.database import get_session
     from gosha.models import Job, User
-
-    from sqlalchemy import select
 
     try:
         await interaction.response.defer(ephemeral=True, thinking=True)

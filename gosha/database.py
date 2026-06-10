@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from gosha.models import Base
 import gosha.events  # noqa: F401 — ensure Event model is registered with Base
+from gosha.models import Base
 
 log = logging.getLogger(__name__)
 

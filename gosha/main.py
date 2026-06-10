@@ -48,7 +48,7 @@ async def main() -> None:
     async def _scrape_and_track(**kwargs: object) -> None:
         """Wrapper that tracks last scrape time on the bot."""
         import time as _time
-        total = await run_scrape_cycle(**kwargs)
+        await run_scrape_cycle(**kwargs)
         bot._last_scrape_at = _time.monotonic()
 
     scheduler.add_job(

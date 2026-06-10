@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
-import pytest_asyncio
 
 from gosha.delivery import (
     ChannelRegistry,
@@ -18,7 +17,6 @@ from gosha.delivery import (
     WebhookChannel,
 )
 from gosha.models import Job, UserJob
-
 
 # ── Test helpers ──────────────────────────────────────────────────────
 

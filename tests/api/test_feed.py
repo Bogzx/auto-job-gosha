@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from sqlalchemy import select
 
 from gosha.embeddings import EMBEDDING_DIM, vec_to_bytes
-from gosha.models import Job, User
+from gosha.models import Job
 
 
 def unit_vec(axis: int) -> np.ndarray:

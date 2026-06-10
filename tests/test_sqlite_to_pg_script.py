@@ -6,8 +6,6 @@ with two SQLite files; production runs it with a postgresql+asyncpg dst URL.
 
 from __future__ import annotations
 
-import json
-
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -22,7 +20,6 @@ from gosha.models import (
     User,
     UserJob,
 )
-
 from scripts.migrate_sqlite_to_postgres import copy_all
 
 

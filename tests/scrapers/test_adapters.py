@@ -31,7 +31,6 @@ def test_remoteok_parse_filters_by_keyword():
         assert job.source == "remoteok"
         assert job.url.startswith("http")
         assert job.title
-        haystack = job.title.lower() + " " + job.description.lower()
         # matched via title or tags; description is stripped of HTML
         assert "<" not in job.description
 

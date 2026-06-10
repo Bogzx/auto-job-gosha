@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from gosha.models import Job, Subscription, User, UserJob
-
 
 # ── Job model ─────────────────────────────────────────────────────────
 
@@ -256,7 +254,6 @@ async def test_user_job_different_users_same_job(session: AsyncSession, sample_j
 
 @pytest.mark.asyncio
 async def test_user_web_columns(session: AsyncSession):
-    import json as _json
     from gosha.models import Outbox  # noqa: F401 — ensure model imports
 
     user = User(
@@ -324,6 +321,7 @@ async def test_application_source_default(session: AsyncSession, sample_user: Us
 @pytest.mark.asyncio
 async def test_outbox_roundtrip(session: AsyncSession, sample_user: User):
     import json as _json
+
     from gosha.models import Outbox
 
     o = Outbox(

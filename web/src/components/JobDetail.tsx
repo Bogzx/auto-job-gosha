@@ -15,6 +15,7 @@ import {
   useApplyClick,
   useCoverLetter,
   useFeedback,
+  useJobDetail,
   useUndoApply,
 } from '../hooks/useJobs'
 import { formatSalary, sourceLabel, timeAgo } from '../lib/format'
@@ -33,6 +34,11 @@ export function JobDetail({ job, onClose }: Props) {
   const undoApply = useUndoApply()
   const coverLetter = useCoverLetter()
   const [letter, setLetter] = useState<string | null>(null)
+
+  // List payloads truncate descriptions for bandwidth; fetch the full
+  // record so the pane never shows a "…" cut-off.
+  const detail = useJobDetail(job.id)
+  const description = detail.data?.description ?? job.description
 
   const salary = formatSalary(job.salary_min, job.salary_max, job.salary_currency)
 
@@ -194,7 +200,7 @@ export function JobDetail({ job, onClose }: Props) {
         )}
 
         <p className="text-[15px] leading-relaxed whitespace-pre-line">
-          {job.description || 'No description available — open the posting for details.'}
+          {description || 'No description available — open the posting for details.'}
         </p>
       </div>
     </article>

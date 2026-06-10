@@ -7,7 +7,6 @@ Each channel handles its own formatting and sending.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -93,6 +92,7 @@ class DiscordDMChannel(DeliveryChannel):
 
     async def send(self, payload: DeliveryPayload, target: str) -> bool:
         import discord
+
         from gosha.views import build_job_embed_with_buttons
 
         discord_id = int(target)
@@ -218,9 +218,10 @@ class EmailChannel(DeliveryChannel):
             log.warning("Email delivery not configured (no SMTP host)")
             return False
         try:
-            import aiosmtplib
-            from email.mime.text import MIMEText
             from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+
+            import aiosmtplib
 
             msg = MIMEMultipart("alternative")
             msg["From"] = self._from_address

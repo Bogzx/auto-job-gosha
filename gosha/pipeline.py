@@ -27,9 +27,9 @@ from gosha.filters import (
     normalize_location,
     title_is_relevant,
 )
-from gosha.models import Job, Subscription, User, UserJob
 from gosha.matching import SemanticMatcher
-from gosha.queue import enqueue_deliveries_batch, get_fresh_jobs
+from gosha.models import Job, Subscription, User, UserJob
+from gosha.queue import enqueue_deliveries_batch
 
 if TYPE_CHECKING:
     from gosha.bot import JobBot
@@ -147,7 +147,7 @@ async def run_scrape_stage(
 
     async with get_session() as session:
         result = await session.execute(
-            select(Subscription).where(Subscription.is_active == True)
+            select(Subscription).where(Subscription.is_active.is_(True))
         )
         all_subs = result.scalars().all()
 
@@ -346,7 +346,7 @@ async def run_match_stage(
         result = await session.execute(
             select(Subscription, User)
             .join(User)
-            .where(Subscription.is_active == True)
+            .where(Subscription.is_active.is_(True))
         )
         sub_user_pairs = result.all()
 
@@ -464,7 +464,6 @@ async def run_scrape_cycle(
     # Post summary
     if alert_channel_id and total_sent > 0:
         try:
-            import discord
             channel = bot.get_channel(alert_channel_id)
             if channel is not None:
                 await channel.send(  # type: ignore[union-attr]
@@ -551,7 +550,6 @@ async def _deliver_new(bot: JobBot, since: datetime) -> int:
     # Notify users with closed DMs in the alert channel
     if dm_failed_users and bot.alert_channel_id:
         try:
-            import discord as _discord
             channel = bot.get_channel(bot.alert_channel_id)
             if channel is not None:
                 mentions = " ".join(dm_failed_users.values())

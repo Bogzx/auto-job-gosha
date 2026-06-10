@@ -54,7 +54,6 @@ async def process_outbox(bot) -> int:
     Rows that keep failing are retried on later runs until MAX_ATTEMPTS,
     then skipped (visible in the admin dashboard via last_error).
     """
-    from gosha.pipeline import _dm_user
 
     async with get_session() as session:
         result = await session.execute(

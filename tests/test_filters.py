@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from gosha.filters import (
     city_only,
@@ -19,7 +18,6 @@ from gosha.filters import (
     normalize_location,
     title_is_relevant,
 )
-
 
 # ── normalize_location ────────────────────────────────────────────────
 
