@@ -1,0 +1,105 @@
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query'
+import { api } from '../api/client'
+import type { Application, Job, JobFilters, JobList } from '../api/types'
+
+const PER_PAGE = 25
+
+function filtersToParams(filters: JobFilters, page: number): string {
+  const params = new URLSearchParams()
+  params.set('page', String(page))
+  params.set('per_page', String(PER_PAGE))
+  if (filters.q) params.set('q', filters.q)
+  if (filters.locations) params.set('locations', filters.locations)
+  if (filters.experience) params.set('experience', filters.experience)
+  if (filters.sources) params.set('sources', filters.sources)
+  if (filters.salary_min) params.set('salary_min', String(filters.salary_min))
+  if (filters.posted_within_days)
+    params.set('posted_within_days', String(filters.posted_within_days))
+  if (filters.remote) params.set('remote', 'true')
+  return params.toString()
+}
+
+/** Infinite list for either the personalized feed or filtered browsing. */
+export function useJobList(mode: 'feed' | 'browse', filters: JobFilters) {
+  return useInfiniteQuery({
+    queryKey: ['jobs', mode, filters],
+    queryFn: ({ pageParam }) => {
+      const qs = filtersToParams(mode === 'feed' ? {} : filters, pageParam)
+      return api.get<JobList>(mode === 'feed' ? `/feed?${qs}` : `/jobs?${qs}`)
+    },
+    initialPageParam: 1,
+    getNextPageParam: (last) =>
+      last.page * last.per_page < last.total ? last.page + 1 : undefined,
+  })
+}
+
+/** Patch one job across every cached job list (feed + browse pages). */
+function patchJobEverywhere(
+  queryClient: ReturnType<typeof useQueryClient>,
+  jobId: number,
+  patch: Partial<Job>,
+) {
+  queryClient.setQueriesData<InfiniteData<JobList>>(
+    { queryKey: ['jobs'] },
+    (data) =>
+      data && {
+        ...data,
+        pages: data.pages.map((page) => ({
+          ...page,
+          items: page.items.map((job) =>
+            job.id === jobId ? { ...job, ...patch } : job,
+          ),
+        })),
+      },
+  )
+}
+
+export function useFeedback() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ jobId, feedback }: { jobId: number; feedback: 'interested' | 'not_relevant' }) =>
+      api.post(`/jobs/${jobId}/feedback`, { feedback }),
+    onMutate: ({ jobId, feedback }) => {
+      patchJobEverywhere(queryClient, jobId, { feedback })
+    },
+    onError: (_err, { jobId }) => {
+      patchJobEverywhere(queryClient, jobId, { feedback: null })
+    },
+  })
+}
+
+export function useApplyClick() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (jobId: number) =>
+      api.post<Application>(`/jobs/${jobId}/apply-click`),
+    onSuccess: (_app, jobId) => {
+      patchJobEverywhere(queryClient, jobId, { applied: true })
+      void queryClient.invalidateQueries({ queryKey: ['applications'] })
+    },
+  })
+}
+
+export function useUndoApply() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ applicationId }: { applicationId: number; jobId: number }) =>
+      api.delete(`/applications/${applicationId}`),
+    onSuccess: (_data, { jobId }) => {
+      patchJobEverywhere(queryClient, jobId, { applied: false })
+      void queryClient.invalidateQueries({ queryKey: ['applications'] })
+    },
+  })
+}
+
+export function useCoverLetter() {
+  return useMutation({
+    mutationFn: (jobId: number) =>
+      api.post<{ content: string; cached: boolean }>(`/jobs/${jobId}/cover-letter`),
+  })
+}
