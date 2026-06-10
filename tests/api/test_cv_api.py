@@ -86,10 +86,11 @@ async def test_cover_letter_generation_and_cache(client, web_user, session, monk
     session.add(job)
     await session.commit()
 
-    async def fake_gemini(prompt: str) -> str:
+    async def fake_generate(prompt: str) -> str:
         return "Dear Acme, I am a great fit."
 
-    monkeypatch.setattr(cl_mod, "_call_gemini", fake_gemini)
+    from gosha import llm
+    monkeypatch.setattr(llm, "generate", fake_generate)
 
     resp = await client.post(f"/api/v1/jobs/{job.id}/cover-letter", cookies=cookies)
     assert resp.status_code == 200

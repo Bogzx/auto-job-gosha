@@ -1,0 +1,176 @@
+"""Job browsing use cases: filtered listing, detail, feedback, apply-click."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import or_, select
+
+from gosha.database import get_session
+from gosha.domain.errors import NotFoundError
+from gosha.filters import (
+    location_matches,
+    matches_experience_level,
+    normalize_location,
+)
+from gosha.models import Application, Job, UserJob
+
+log = logging.getLogger(__name__)
+
+MAX_CANDIDATES = 2000
+
+
+@dataclass(frozen=True)
+class JobFilters:
+    q: str = ""
+    locations: list[str] = field(default_factory=list)
+    experience: list[str] = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)
+    salary_min: int | None = None
+    posted_within_days: int | None = None
+    remote: bool = False
+
+
+async def list_jobs(
+    user_id: int, filters: JobFilters, page: int, per_page: int,
+) -> tuple[list[Job], int]:
+    """Active jobs matching the filters, newest first, plus total count."""
+    stmt = select(Job).where(Job.is_active.is_(True))
+
+    if filters.q.strip():
+        needle = f"%{filters.q.strip()}%"
+        stmt = stmt.where(or_(Job.title.ilike(needle), Job.company.ilike(needle)))
+    if filters.sources:
+        stmt = stmt.where(Job.source.in_([s.lower() for s in filters.sources]))
+    if filters.salary_min is not None:
+        stmt = stmt.where(
+            or_(
+                Job.salary_max >= filters.salary_min,
+                Job.salary_min >= filters.salary_min,
+                # No salary data — benefit of the doubt (mirrors matching logic)
+                Job.salary_min.is_(None) & Job.salary_max.is_(None),
+            )
+        )
+    if filters.posted_within_days is not None:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=filters.posted_within_days)
+        stmt = stmt.where(Job.first_seen_at >= cutoff)
+
+    stmt = stmt.order_by(Job.first_seen_at.desc()).limit(MAX_CANDIDATES)
+
+    async with get_session() as session:
+        result = await session.execute(stmt)
+        candidates = list(result.scalars().all())
+
+    # Location + experience need the alias/regex helpers (post-SQL)
+    if filters.locations or filters.remote:
+        match_subs: list[str] = []
+        for loc in filters.locations:
+            _search, subs = normalize_location(loc)
+            match_subs.extend(subs)
+        if filters.remote:
+            _search, remote_subs = normalize_location("remote")
+            match_subs.extend(remote_subs)
+        candidates = [
+            j for j in candidates if location_matches(j.location, match_subs)
+        ]
+
+    if filters.experience:
+        levels = [e.lower() for e in filters.experience]
+        candidates = [
+            j for j in candidates if matches_experience_level(j.title, levels)
+        ]
+
+    total = len(candidates)
+    start = (page - 1) * per_page
+    return candidates[start : start + per_page], total
+
+
+async def get_job(job_id: int) -> Job:
+    async with get_session() as session:
+        job = await session.get(Job, job_id)
+    if job is None:
+        raise NotFoundError("Job not found.")
+    return job
+
+
+async def annotate_user_state(
+    user_id: int, job_ids: list[int],
+) -> tuple[dict[int, str], set[int]]:
+    """Return ({job_id: feedback}, {applied job_ids}) for the given jobs."""
+    if not job_ids:
+        return {}, set()
+    async with get_session() as session:
+        fb_rows = await session.execute(
+            select(UserJob.job_id, UserJob.feedback).where(
+                UserJob.user_id == user_id,
+                UserJob.job_id.in_(job_ids),
+                UserJob.feedback.isnot(None),
+            )
+        )
+        feedback = {job_id: fb for job_id, fb in fb_rows.all()}
+        app_rows = await session.execute(
+            select(Application.job_id).where(
+                Application.user_id == user_id, Application.job_id.in_(job_ids)
+            )
+        )
+        applied = {row[0] for row in app_rows.all()}
+    return feedback, applied
+
+
+async def set_feedback(user_id: int, job_id: int, feedback: str) -> None:
+    """Record 👍/👎; creates the user_jobs row when the web user was never DMed."""
+    await get_job(job_id)
+    now = datetime.now(timezone.utc)
+
+    async with get_session() as session:
+        uj = (
+            await session.execute(
+                select(UserJob).where(
+                    UserJob.user_id == user_id, UserJob.job_id == job_id
+                )
+            )
+        ).scalar_one_or_none()
+        if uj is None:
+            uj = UserJob(user_id=user_id, job_id=job_id)
+            session.add(uj)
+        uj.feedback = feedback
+        uj.feedback_at = now
+        await session.commit()
+
+    try:
+        from gosha.events import emit_user_feedback
+        await emit_user_feedback(job_id, user_id, feedback)
+    except Exception:
+        pass
+
+
+async def record_apply_click(user_id: int, job_id: int) -> tuple[Application, Job]:
+    """Idempotently track an application when the user clicks Apply."""
+    job = await get_job(job_id)
+
+    async with get_session() as session:
+        app = (
+            await session.execute(
+                select(Application).where(
+                    Application.user_id == user_id, Application.job_id == job_id
+                )
+            )
+        ).scalar_one_or_none()
+        created = app is None
+        if app is None:
+            app = Application(user_id=user_id, job_id=job_id, source="web")
+            session.add(app)
+            await session.commit()
+
+    if created:
+        try:
+            from gosha.events import get_event_store
+            await get_event_store().emit(
+                "web.apply_click", actor_id=user_id, job_id=job_id
+            )
+        except Exception:
+            pass
+
+    return app, job

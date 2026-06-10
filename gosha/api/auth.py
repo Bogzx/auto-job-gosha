@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import os
 import secrets
-from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import httpx
@@ -21,8 +20,6 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 from gosha.api.deps import ApiError, clear_session_cookie, set_session_cookie
 from gosha.api.schemas import OkOut
 from gosha.config import load_web_settings
-from gosha.database import get_session
-from gosha.models import User
 
 log = logging.getLogger(__name__)
 
@@ -123,24 +120,11 @@ async def discord_callback(request: Request, code: str = "", state: str = "") ->
 
         in_guild = await _join_guild(http, settings.guild_id, discord_id, access_token)
 
-    now = datetime.now(timezone.utc)
-    async with get_session() as session:
-        from sqlalchemy import select
+    from gosha.services.users import upsert_discord_user
 
-        user = (
-            await session.execute(select(User).where(User.discord_user_id == discord_id))
-        ).scalar_one_or_none()
-        is_new = user is None
-        if user is None:
-            user = User(discord_user_id=discord_id)
-            session.add(user)
-        user.username = username
-        user.avatar_url = avatar_url
-        user.last_login_at = now
-        if in_guild:
-            user.in_guild = True
-        await session.commit()
-        user_id = user.id
+    user_id, is_new = await upsert_discord_user(
+        discord_id, username, avatar_url, in_guild,
+    )
 
     try:
         from gosha.events import get_event_store

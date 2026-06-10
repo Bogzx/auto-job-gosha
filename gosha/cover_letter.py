@@ -1,43 +1,26 @@
-"""AI cover letter generation using the free Google Gemini API.
+﻿"""AI cover letter generation + CV text storage.
 
 Flow:
-  1. User uploads CV once (/upload_cv) — stored as plain text.
-  2. User requests a cover letter for a specific job (/cover_letter <job_id>).
-  3. This module sends CV + job details to Gemini and returns the letter.
+  1. User uploads CV once (web or /upload_cv) — stored as plain text.
+  2. User requests a cover letter for a specific job.
+  3. CV + job details go to the configured LLM provider (gosha/llm.py).
   4. The letter is stored in the DB so it can be retrieved later.
-
-Requires: GEMINI_API_KEY env var (free tier from https://aistudio.google.com/apikey)
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 from sqlalchemy import func, select
 
+from gosha import llm
 from gosha.database import get_session
 from gosha.models import CoverLetter, Job, User
 
 log = logging.getLogger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODELS = [
-    "gemini-3-flash-preview",
-    "gemini-3.1-flash-lite-preview",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemma-4-31b-it",
-]
-
-# OpenRouter (alternative LLM provider; OpenAI-compatible API)
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-chat"
 
 # CV storage directory
 CV_DIR = Path(__file__).resolve().parent.parent / "data" / "cvs"
@@ -165,121 +148,6 @@ async def get_monthly_usage(user_id: int) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Gemini API call
-# ---------------------------------------------------------------------------
-
-
-async def _call_llm(prompt: str) -> str | None:
-    """Dispatch to the configured LLM provider.
-
-    LLM_PROVIDER=gemini|openrouter forces a provider; otherwise OpenRouter
-    is used whenever OPENROUTER_API_KEY is set, falling back to Gemini.
-    """
-    provider = os.getenv("LLM_PROVIDER", "").lower().strip()
-    if not provider:
-        provider = "openrouter" if os.getenv("OPENROUTER_API_KEY") else "gemini"
-
-    if provider == "openrouter":
-        return await _call_openrouter(prompt)
-    return await _call_gemini(prompt)
-
-
-async def _call_openrouter(prompt: str) -> str | None:
-    """Call OpenRouter's OpenAI-compatible chat completions API."""
-    api_key = os.getenv("OPENROUTER_API_KEY", "")
-    if not api_key:
-        log.error("OPENROUTER_API_KEY not set — OpenRouter unavailable")
-        return None
-    model = os.getenv("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
-
-    import httpx
-
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
-        "max_tokens": 2048,
-    }
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(
-                OPENROUTER_URL,
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "X-Title": "GOSHA Jobs",
-                },
-            )
-        if resp.status_code != 200:
-            log.error("OpenRouter error %d: %s", resp.status_code, resp.text[:300])
-            return None
-        choices = resp.json().get("choices") or []
-        content = (choices[0].get("message") or {}).get("content") if choices else None
-        return content.strip() if content else None
-    except httpx.HTTPError as exc:
-        log.error("OpenRouter request failed: %s", exc)
-        return None
-
-
-async def _call_gemini(prompt: str) -> str | None:
-    """Call the Gemini API, trying each model in GEMINI_MODELS until one succeeds."""
-    if not GEMINI_API_KEY:
-        log.error("GEMINI_API_KEY not set — cover letter generation unavailable")
-        return None
-
-    try:
-        import httpx
-    except ImportError:
-        log.error("httpx not installed — Gemini API unavailable")
-        return None
-
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 2048,
-        },
-    }
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        for model in GEMINI_MODELS:
-            url = (
-                f"https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{model}:generateContent?key={GEMINI_API_KEY}"
-            )
-            try:
-                resp = await client.post(url, json=payload)
-
-                if resp.status_code == 429:
-                    log.warning("Gemini model %s rate-limited (429) — trying next", model)
-                    continue
-
-                if resp.status_code != 200:
-                    log.error("Gemini API error %d for %s: %s", resp.status_code, model, resp.text[:500])
-                    continue
-
-                data = resp.json()
-                candidates = data.get("candidates", [])
-                if not candidates:
-                    log.error("Gemini %s returned no candidates: %s", model, data)
-                    continue
-
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if not parts:
-                    continue
-
-                log.info("Cover letter generated using model: %s", model)
-                return parts[0].get("text", "").strip()
-
-            except Exception as exc:
-                log.error("Gemini API call failed for %s: %s", model, exc)
-                continue
-
-    log.error("All Gemini models exhausted — cover letter generation failed")
-    return None
-
-
-# ---------------------------------------------------------------------------
 # Cover letter generation
 # ---------------------------------------------------------------------------
 
@@ -375,7 +243,7 @@ async def generate_cover_letter(
 
     # Generate
     prompt = _build_prompt(cv_text, job)
-    content = await _call_llm(prompt)
+    content = await llm.generate(prompt)
     if not content:
         return None, False
 

@@ -1,0 +1,911 @@
+{
+ "jobs": [
+  {
+   "id": 1963288,
+   "title": "Chimist Analist - Controlul Calitatii",
+   "company": {
+    "id": 16358,
+    "name": "SC LAROPHARM SRL",
+    "logoUrl": "/img/logos/1/16358.jpg",
+    "verified": true,
+    "slug": "laropharm"
+   },
+   "locations": [
+    {
+     "cityId": 382
+    },
+    {
+     "cityId": 81
+    },
+    {
+     "cityId": 1
+    }
+   ],
+   "positions": 5,
+   "creationDate": "2026-06-10T13:05:00Z",
+   "slug": "chimist-analist-controlul-calitatii",
+   "expirationDate": "2026-07-10T00:00:00Z",
+   "industriesIds": [
+    11,
+    7
+   ],
+   "careerLevelsIds": [
+    3,
+    10
+   ],
+   "departmentsIds": [
+    36,
+    49,
+    54
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1961022,
+   "title": "Senior Software Engineer",
+   "company": {
+    "id": 336993,
+    "name": "Trimble Solutions (UK) Ltd",
+    "logoUrl": "/img/logos/3/336993.jpg",
+    "verified": true,
+    "slug": "trimble-romania-s-r-l"
+   },
+   "locations": [
+    {
+     "cityId": 10
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:40:00Z",
+   "slug": "senior-software-engineer",
+   "isVideoAd": true,
+   "expirationDate": "2026-07-01T00:00:00Z",
+   "externalUrl": "https://stats.the-network.com/redirect/cdab6414-ced3-46fb-b1ce-602540a75ef3",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    4,
+    6
+   ],
+   "departmentsIds": [
+    38,
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1959988,
+   "title": "Junior Developer Academia de Software",
+   "company": {
+    "id": 11982,
+    "name": "ESSENSYS SOFTWARE",
+    "logoUrl": "/img/logos/1/11982.jpg",
+    "verified": true,
+    "slug": "essensys"
+   },
+   "locations": [
+    {
+     "cityId": 1,
+     "address": "București, România"
+    }
+   ],
+   "positions": 10,
+   "creationDate": "2026-06-10T08:35:00Z",
+   "slug": "junior-developer-academia-de-software",
+   "expirationDate": "2026-06-26T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    10,
+    3
+   ],
+   "departmentsIds": [
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1963240,
+   "title": "REPREZENTANT COMERCIAL/VANZARI",
+   "company": {
+    "id": 89682,
+    "name": "SC MADRUGADA COM SRL",
+    "logoUrl": "/img/logos/8/89682.png",
+    "verified": true,
+    "slug": "sc-madrugada-com-srl"
+   },
+   "locations": [
+    {
+     "cityId": 23,
+     "address": "Palota"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T11:46:55Z",
+   "slug": "reprezentant-comercial-vanzari",
+   "expirationDate": "2026-07-10T00:00:00Z",
+   "industriesIds": [
+    9,
+    15,
+    8
+   ],
+   "careerLevelsIds": [
+    4
+   ],
+   "departmentsIds": [
+    24,
+    51,
+    5
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1960845,
+   "title": "Senior Software Engineer",
+   "company": {
+    "id": 287423,
+    "name": "Manpower",
+    "logoUrl": "/img/logos/2/287423.png",
+    "verified": true,
+    "slug": "manpower"
+   },
+   "locations": [
+    {
+     "cityId": 1
+    },
+    {
+     "cityId": 299
+    },
+    {
+     "cityId": 567
+    },
+    {
+     "cityId": 82
+    },
+    {
+     "cityId": 398
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:40:00Z",
+   "slug": "senior-software-engineer",
+   "expirationDate": "2026-06-28T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    6
+   ],
+   "departmentsIds": [
+    45,
+    57,
+    39
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1961392,
+   "title": "Software Business Analyst",
+   "company": {
+    "id": 355195,
+    "name": "VISION TECHNOLOGY DEVELOPMENT",
+    "verified": true,
+    "slug": "vision-technology-development"
+   },
+   "locations": [
+    {
+     "cityId": 1
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-09T08:35:00Z",
+   "slug": "software-business-analyst",
+   "expirationDate": "2026-07-02T00:00:00Z",
+   "externalUrl": "https://www.vision.ro/business_analyst?language_content_entity=en",
+   "industriesIds": [
+    23,
+    18
+   ],
+   "careerLevelsIds": [
+    4
+   ],
+   "departmentsIds": [
+    57,
+    107
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1956648,
+   "title": "Software Engineer - Data & AI",
+   "company": {
+    "id": 103764,
+    "name": "Infopro Digital Automotive",
+    "logoUrl": "/img/logos/1/103764.png",
+    "verified": true,
+    "slug": "infopro-digital-automotive"
+   },
+   "locations": [
+    {
+     "cityId": 10,
+     "address": "Brașov, România"
+    },
+    {
+     "cityId": 1
+    },
+    {
+     "cityId": 81
+    }
+   ],
+   "positions": 2,
+   "creationDate": "2026-06-10T08:35:00Z",
+   "slug": "software-engineer-data-ai",
+   "expirationDate": "2026-06-12T00:00:00Z",
+   "industriesIds": [
+    14
+   ],
+   "careerLevelsIds": [
+    6
+   ],
+   "departmentsIds": [
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1959067,
+   "title": "INGINER SOFTWARE EMBEDDED (Junior/Mid)",
+   "company": {
+    "id": 149731,
+    "name": "EMS ELECTRA",
+    "logoUrl": "/img/logos/1/149731.jpg",
+    "verified": true,
+    "slug": "ems-electra"
+   },
+   "locations": [
+    {
+     "cityId": 21,
+     "address": "707307 Brătuleni"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:40:00Z",
+   "slug": "inginer-software-embedded-junior-mid",
+   "expirationDate": "2026-06-21T00:00:00Z",
+   "industriesIds": [
+    31,
+    18,
+    30
+   ],
+   "careerLevelsIds": [
+    3,
+    4
+   ],
+   "departmentsIds": [
+    39,
+    57,
+    58,
+    45
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1961659,
+   "title": "Junior Software Test Engineer",
+   "company": {
+    "id": 341072,
+    "name": "Valorem Statio",
+    "logoUrl": "/img/logos/3/341072.png",
+    "verified": true,
+    "slug": "valorem-statio"
+   },
+   "locations": [
+    {
+     "cityId": 4903,
+     "address": "Iași, România"
+    }
+   ],
+   "positions": 11,
+   "creationDate": "2026-06-03T16:16:27Z",
+   "slug": "junior-software-test-engineer",
+   "expirationDate": "2026-07-03T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    3
+   ],
+   "departmentsIds": [
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1961955,
+   "title": "Industrial Software Developer",
+   "company": {
+    "id": 40795,
+    "name": "SC GROVINVEST SRL",
+    "logoUrl": "/img/logos/4/40795.jpg",
+    "verified": true,
+    "slug": "sc-grovinvest-srl"
+   },
+   "locations": [
+    {
+     "cityId": 367,
+     "address": "455200 Jibou, România"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-04T14:53:13Z",
+   "slug": "industrial-software-developer",
+   "expirationDate": "2026-07-04T00:00:00Z",
+   "industriesIds": [
+    31
+   ],
+   "careerLevelsIds": [
+    4
+   ],
+   "departmentsIds": [
+    57,
+    36
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1955952,
+   "title": "Software Development Manager, Compliance Safety Services",
+   "company": {
+    "id": 331135,
+    "name": "Amazon Development Center (Romania) S.R.L",
+    "logoUrl": "/img/logos/3/331135.png",
+    "verified": true,
+    "slug": "amazon-development-center-romania-s-r-l"
+   },
+   "locations": [
+    {
+     "cityId": 21,
+     "address": "Iași, România"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:40:00Z",
+   "slug": "software-development-manager-compliance-safety-services",
+   "expirationDate": "2026-06-10T00:00:00Z",
+   "externalUrl": "https://www.amazon.jobs/jobs/10371581/software-development-manager-compliance-safety-services?cmpid=JBOTOP7652B",
+   "careerLevelsIds": [
+    6,
+    5,
+    4
+   ],
+   "departmentsIds": [
+    45,
+    57,
+    38,
+    101
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1962128,
+   "title": "Inside Channel Manager with German",
+   "company": {
+    "id": 255144,
+    "name": "VEEAM SOFTWARE SRL",
+    "logoUrl": "/img/logos/2/255144.png",
+    "verified": true,
+    "slug": "veeam-software"
+   },
+   "locations": [
+    {
+     "cityId": 1,
+     "address": "Bulevardul Timișoara 4A, 061328 București"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-05T11:07:15Z",
+   "slug": "inside-channel-manager-with-german",
+   "expirationDate": "2026-07-05T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    4,
+    6
+   ],
+   "departmentsIds": [
+    5
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1959973,
+   "title": "Senior Software Engineer – Scalable Web Platforms",
+   "company": {
+    "id": 6444,
+    "name": "Farmacia Tei",
+    "logoUrl": "/img/logos/6/6444.jpeg",
+    "verified": true,
+    "slug": "farmacia-tei"
+   },
+   "salary": "1500 - 2500 EUR",
+   "locations": [
+    {
+     "cityId": 1
+    },
+    {
+     "cityId": 81
+    }
+   ],
+   "positions": 2,
+   "creationDate": "2026-06-10T08:45:00Z",
+   "slug": "senior-software-engineer-scalable-web-platforms",
+   "expirationDate": "2026-06-26T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    4,
+    6
+   ],
+   "departmentsIds": [
+    57,
+    31
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1958192,
+   "title": "Software Developer- Application Engineer",
+   "company": {
+    "id": 207337,
+    "name": "Contec Automation",
+    "logoUrl": "/img/logos/2/207337.png",
+    "verified": true,
+    "slug": "contec-automation"
+   },
+   "locations": [
+    {
+     "cityId": 25,
+     "address": "Ploiești, România"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:40:00Z",
+   "slug": "software-developer-application-engineer",
+   "expirationDate": "2026-06-19T00:00:00Z",
+   "careerLevelsIds": [
+    3,
+    4
+   ],
+   "departmentsIds": [
+    57,
+    45,
+    106
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1960604,
+   "title": "Dezvoltator Software Fullstack Senior (Java & Angular)",
+   "company": {
+    "id": 263279,
+    "name": "CERTSIGN SA",
+    "logoUrl": "/img/logos/2/263279.png",
+    "verified": true,
+    "slug": "certsign"
+   },
+   "locations": [
+    {
+     "cityId": 381
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-05T08:35:00Z",
+   "slug": "dezvoltator-software-fullstack-senior-java-angular",
+   "expirationDate": "2026-06-28T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    6
+   ],
+   "departmentsIds": [
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1955950,
+   "title": "Principal Software Development Engineer, Compliance & Safety Services",
+   "company": {
+    "id": 331135,
+    "name": "Amazon Development Center (Romania) S.R.L",
+    "logoUrl": "/img/logos/3/331135.png",
+    "verified": true,
+    "slug": "amazon-development-center-romania-s-r-l"
+   },
+   "locations": [
+    {
+     "cityId": 21,
+     "address": "Iași, România"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:40:00Z",
+   "slug": "principal-software-development-engineer-compliance-safety-services",
+   "expirationDate": "2026-06-10T00:00:00Z",
+   "externalUrl": "https://www.amazon.jobs/jobs/10376445/principal-software-development-engineer-compliance--safety-services?cmpid=JBOTOP7652B",
+   "careerLevelsIds": [
+    6,
+    4
+   ],
+   "departmentsIds": [
+    45,
+    57,
+    38,
+    101
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1957651,
+   "title": "Consultant software medical",
+   "company": {
+    "id": 11119,
+    "name": "Softeh Plus SRL",
+    "logoUrl": "/img/logos/1/11119.png",
+    "verified": true,
+    "slug": "softeh-plus-srl"
+   },
+   "locations": [
+    {
+     "cityId": 1
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:40:00Z",
+   "slug": "consultant-software-medical",
+   "expirationDate": "2026-06-17T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    3,
+    4
+   ],
+   "departmentsIds": [
+    58,
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1959754,
+   "title": "Programator Full Stack pe Google Cloud",
+   "company": {
+    "id": 80099,
+    "name": "SOTEC SOFTWARE SRL",
+    "logoUrl": "/img/logos/8/80099.jpeg",
+    "verified": true,
+    "slug": "sotec-software-srl"
+   },
+   "salary": "8000 RON",
+   "locations": [
+    {
+     "cityId": 381
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:40:00Z",
+   "slug": "programator-full-stack-pe-google-cloud",
+   "expirationDate": "2026-06-25T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    4
+   ],
+   "departmentsIds": [
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1958726,
+   "title": "Junior AI Automation & Software Developer (Entry Level)",
+   "company": {
+    "id": 7789,
+    "name": "GRADINARIU IMPORT EXPORT SRL",
+    "logoUrl": "/img/logos/7/7789.jpg",
+    "verified": true,
+    "slug": "gradinariu-import-export-srl"
+   },
+   "salary": "500 - 4500 RON",
+   "locations": [
+    {
+     "cityId": 1,
+     "address": "București, România"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-04T08:35:00Z",
+   "slug": "junior-ai-automation-software-developer-entry-level",
+   "expirationDate": "2026-06-20T00:00:00Z",
+   "industriesIds": [
+    18,
+    31,
+    27,
+    19,
+    25
+   ],
+   "careerLevelsIds": [
+    10,
+    3
+   ],
+   "departmentsIds": [
+    106,
+    22,
+    45,
+    57,
+    36
+   ],
+   "contractTypesIds": [
+    5,
+    6
+   ]
+  },
+  {
+   "id": 1961097,
+   "title": "Technical Support Specialist with German",
+   "company": {
+    "id": 287740,
+    "name": "Regiondo Software SRL",
+    "logoUrl": "/img/logos/2/287740.jpg",
+    "verified": true,
+    "slug": "regiondo-software-srl"
+   },
+   "locations": [
+    {
+     "cityId": 32,
+     "address": "Sibiu, România"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-09T08:35:00Z",
+   "slug": "technical-support-specialist-with-german",
+   "expirationDate": "2026-07-02T00:00:00Z",
+   "industriesIds": [
+    6,
+    18
+   ],
+   "careerLevelsIds": [
+    3,
+    4
+   ],
+   "departmentsIds": [
+    57,
+    31,
+    44
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1958988,
+   "title": "QA Engineer",
+   "company": {
+    "id": 5509,
+    "name": "EXE SOFTWARE SRL",
+    "logoUrl": "/img/logos/5/5509.png",
+    "verified": true,
+    "slug": "exe-software-srl"
+   },
+   "locations": [
+    {
+     "cityId": 381
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-05T08:35:00Z",
+   "slug": "qa-engineer",
+   "expirationDate": "2026-06-21T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    4
+   ],
+   "departmentsIds": [
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1963249,
+   "title": "Customer Care Specialist - medical field (Bucuresti)",
+   "company": {
+    "id": 18405,
+    "name": "ABC HUMAN CAPITAL",
+    "logoUrl": "/img/logos/1/18405.jpeg",
+    "verified": true,
+    "slug": "abc-human-capital"
+   },
+   "salary": "4500 - 5000 RON",
+   "locations": [
+    {
+     "cityId": 1,
+     "address": "București, România"
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T11:57:42Z",
+   "slug": "customer-care-specialist-medical-field-bucuresti",
+   "expirationDate": "2026-07-10T00:00:00Z",
+   "industriesIds": [
+    8,
+    11,
+    20
+   ],
+   "careerLevelsIds": [
+    3,
+    4
+   ],
+   "departmentsIds": [
+    5,
+    16,
+    70
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1958956,
+   "title": "Power BI Developer",
+   "company": {
+    "id": 5509,
+    "name": "EXE SOFTWARE SRL",
+    "logoUrl": "/img/logos/5/5509.png",
+    "verified": true,
+    "slug": "exe-software-srl"
+   },
+   "locations": [
+    {
+     "cityId": 381
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-05T08:35:00Z",
+   "slug": "power-bi-developer",
+   "expirationDate": "2026-06-21T00:00:00Z",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    4,
+    6
+   ],
+   "departmentsIds": [
+    57
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  },
+  {
+   "id": 1957373,
+   "title": "Consultant Vanzari",
+   "company": {
+    "id": 356544,
+    "name": "GALIAN SOFTWARE DEVELOPMENT S.R.L.",
+    "verified": true,
+    "slug": "galian-software-development-s-r-l"
+   },
+   "locations": [
+    {
+     "cityId": 381
+    }
+   ],
+   "positions": 5,
+   "creationDate": "2026-06-05T08:35:00Z",
+   "slug": "consultant-vanzari",
+   "expirationDate": "2026-06-14T00:00:00Z",
+   "industriesIds": [
+    10,
+    19,
+    25
+   ],
+   "careerLevelsIds": [
+    6
+   ],
+   "departmentsIds": [
+    5
+   ],
+   "contractTypesIds": [
+    5,
+    6
+   ]
+  },
+  {
+   "id": 1956501,
+   "title": "Inginer Proiectant Electrice",
+   "company": {
+    "id": 317733,
+    "name": "Skilld by eJobs",
+    "logoUrl": "/img/logos/3/317733.png",
+    "verified": true,
+    "slug": "skilld-by-ejobs"
+   },
+   "locations": [
+    {
+     "cityId": 469
+    },
+    {
+     "cityId": 81
+    },
+    {
+     "cityId": 1
+    }
+   ],
+   "positions": 1,
+   "creationDate": "2026-06-10T08:45:00Z",
+   "slug": "inginer-proiectant-electrice",
+   "expirationDate": "2026-06-12T00:00:00Z",
+   "careerLevelsIds": [
+    4,
+    6
+   ],
+   "departmentsIds": [
+    45,
+    108
+   ],
+   "contractTypesIds": [
+    5
+   ]
+  }
+ ],
+ "totalCount": 451,
+ "morePagesFollow": true
+}

@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from gosha.api.deps import ApiError, current_user, is_admin
 from gosha.api.schemas import MeOut
+from gosha.domain.errors import DomainError
 from gosha.models import User
 
 log = logging.getLogger(__name__)
@@ -33,6 +34,19 @@ _HTTP_CODES = {
     413: "file_too_large",
     422: "invalid_request",
     429: "rate_limited",
+}
+
+# Domain error code -> HTTP status (services raise domain errors; only the
+# interface layer knows about HTTP)
+_DOMAIN_STATUS = {
+    "not_found": 404,
+    "tier_limit": 403,
+    "quota_exceeded": 403,
+    "invalid_request": 422,
+    "invalid_status": 422,
+    "no_cv": 422,
+    "file_too_large": 413,
+    "generation_failed": 502,
 }
 
 
@@ -67,6 +81,11 @@ def create_app() -> FastAPI:
     @app.exception_handler(ApiError)
     async def _api_error_handler(request: Request, exc: ApiError):
         return _error_response(exc.status_code, exc.code, exc.message)
+
+    @app.exception_handler(DomainError)
+    async def _domain_error_handler(request: Request, exc: DomainError):
+        status = _DOMAIN_STATUS.get(exc.code, 400)
+        return _error_response(status, exc.code, exc.message)
 
     @app.exception_handler(StarletteHTTPException)
     async def _http_error_handler(request: Request, exc: StarletteHTTPException):

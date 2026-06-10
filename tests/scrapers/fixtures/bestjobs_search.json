@@ -1,0 +1,215 @@
+{
+ "items": [
+  {
+   "id": "52025738",
+   "workplaceJob": false,
+   "hasDescription": true,
+   "slug": "consultant-implementare-software-contabilitate-10",
+   "title": "Consultant implementare software contabilitate",
+   "rating": 4.28,
+   "locations": [
+    {
+     "name": "Cluj-Napoca, România",
+     "slug": "cluj-napoca-romania",
+     "geoLocation": {
+      "lat": 46.7712101,
+      "lng": 23.6236353
+     },
+     "withFullAddress": false
+    },
+    {
+     "name": "București, România",
+     "slug": "bucuresti-romania",
+     "geoLocation": {
+      "lat": 44.4267674,
+      "lng": 26.1025384
+     },
+     "withFullAddress": false
+    }
+   ],
+   "companyName": "Info World",
+   "companyLogo": "5b86602a9a533.png",
+   "salary": "900 - 1250",
+   "estimatedSalary": "",
+   "applications": 92,
+   "appliedAt": "",
+   "applicationViewedAt": "",
+   "showApplicationInfo": false,
+   "liked": false,
+   "disliked": false,
+   "responsive": false,
+   "premium": true,
+   "highlighted": true,
+   "applicationType": 1,
+   "autoApply": false,
+   "acceptsMessage": false,
+   "active": true,
+   "ownApplyUrl": "",
+   "hasOwnApplyUrl": false,
+   "unansweredQuestions": [],
+   "unansweredJobInterviewQuestions": [],
+   "state": "active"
+  },
+  {
+   "id": "52021508",
+   "workplaceJob": false,
+   "hasDescription": true,
+   "slug": "solutions-consultant-sme-b2b-vodafone",
+   "title": "Solutions Consultant SME B2B – Vodafone",
+   "rating": 4.24,
+   "locations": [
+    {
+     "name": "Cluj-Napoca, România",
+     "slug": "cluj-napoca-romania",
+     "geoLocation": {
+      "lat": 46.7712101,
+      "lng": 23.6236353
+     },
+     "withFullAddress": false
+    }
+   ],
+   "companyName": "Instore Power Provider",
+   "companyLogo": "6274cce519c8f.png",
+   "salary": "",
+   "estimatedSalary": "1365 - 1510",
+   "applications": 24,
+   "appliedAt": "",
+   "applicationViewedAt": "",
+   "showApplicationInfo": false,
+   "liked": false,
+   "disliked": false,
+   "responsive": true,
+   "premium": true,
+   "highlighted": false,
+   "applicationType": 1,
+   "autoApply": false,
+   "acceptsMessage": false,
+   "active": true,
+   "ownApplyUrl": "",
+   "hasOwnApplyUrl": false,
+   "unansweredQuestions": [],
+   "unansweredJobInterviewQuestions": [],
+   "state": "active"
+  },
+  {
+   "id": "52017701",
+   "workplaceJob": false,
+   "hasDescription": true,
+   "slug": "full-stack-java-developer-with-french-1",
+   "title": "Full stack Java developer with French",
+   "rating": 4.51,
+   "locations": [
+    {
+     "name": "Remote",
+     "slug": "remote",
+     "withFullAddress": false
+    }
+   ],
+   "companyName": "ATOS GLOBAL DELIVERY CENTER",
+   "companyLogo": "650be3f995f1d.jpeg",
+   "salary": "",
+   "estimatedSalary": "1080 - 1195",
+   "applications": 200,
+   "appliedAt": "",
+   "applicationViewedAt": "",
+   "showApplicationInfo": false,
+   "liked": false,
+   "disliked": false,
+   "responsive": false,
+   "premium": true,
+   "highlighted": true,
+   "applicationType": 1,
+   "autoApply": false,
+   "acceptsMessage": false,
+   "active": true,
+   "ownApplyUrl": "",
+   "hasOwnApplyUrl": false,
+   "unansweredQuestions": [],
+   "unansweredJobInterviewQuestions": [],
+   "state": "active"
+  },
+  {
+   "id": "52028242",
+   "workplaceJob": false,
+   "hasDescription": true,
+   "slug": "senior-react-js-front-end-developer-banking",
+   "title": "Senior React.js Front-End Developer - Banking",
+   "rating": 0.0,
+   "locations": [
+    {
+     "name": "Remote",
+     "slug": "remote",
+     "withFullAddress": false
+    }
+   ],
+   "companyName": "Circle Recruiting",
+   "companyLogo": "6a27f323a6256.jpg",
+   "salary": "3500 - 4200",
+   "estimatedSalary": "",
+   "applications": 31,
+   "appliedAt": "",
+   "applicationViewedAt": "",
+   "showApplicationInfo": false,
+   "liked": false,
+   "disliked": false,
+   "responsive": false,
+   "premium": false,
+   "highlighted": false,
+   "applicationType": 1,
+   "autoApply": false,
+   "acceptsMessage": false,
+   "active": true,
+   "ownApplyUrl": "",
+   "hasOwnApplyUrl": false,
+   "unansweredQuestions": [],
+   "unansweredJobInterviewQuestions": [],
+   "state": "active"
+  },
+  {
+   "id": "52028239",
+   "workplaceJob": false,
+   "hasDescription": true,
+   "slug": "python-backend-developer-banking",
+   "title": "Python Backend Developer - Banking",
+   "rating": 0.0,
+   "locations": [
+    {
+     "name": "Remote",
+     "slug": "remote",
+     "withFullAddress": false
+    }
+   ],
+   "companyName": "Circle Recruiting",
+   "companyLogo": "6a27f323a6256.jpg",
+   "salary": "3800 - 4500",
+   "estimatedSalary": "",
+   "applications": 28,
+   "appliedAt": "",
+   "applicationViewedAt": "",
+   "showApplicationInfo": false,
+   "liked": false,
+   "disliked": false,
+   "responsive": false,
+   "premium": false,
+   "highlighted": false,
+   "applicationType": 1,
+   "autoApply": false,
+   "acceptsMessage": false,
+   "active": true,
+   "ownApplyUrl": "",
+   "hasOwnApplyUrl": false,
+   "unansweredQuestions": [],
+   "unansweredJobInterviewQuestions": [],
+   "state": "active"
+  }
+ ],
+ "total": 100,
+ "pages": 1,
+ "page": 1,
+ "searchId": "",
+ "apiRequestId": "428f82dd-371e-4fa8-8a4b-0943b1f8a259",
+ "jobSearchAlertExists": false,
+ "jobSearchAlertAdmin": false,
+ "jobSearchEventIds": "",
+ "totalVacancies": 0
+}
