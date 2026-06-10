@@ -436,6 +436,13 @@ async def run_scrape_cycle(
     except Exception as exc:
         log.warning("Job embedding step failed: %s", exc)
 
+    # Group cross-board duplicates before matching (best-effort)
+    try:
+        from gosha.dedup import assign_dedup_groups
+        await assign_dedup_groups()
+    except Exception as exc:
+        log.warning("Dedup step failed: %s", exc)
+
     # Stage 2: Match (with optional semantic scoring)
     matcher = None
     if use_semantic:

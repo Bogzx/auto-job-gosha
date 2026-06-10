@@ -177,6 +177,13 @@ class Job(Base):
     )
     # float32 bytes of the job-text embedding (see gosha/embeddings.py)
     embedding: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    # Cross-board duplicate group: id of the canonical job (the canonical
+    # row points at itself; NULL = not yet grouped / unique)
+    dedup_group_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Dead-link detection bookkeeping
+    last_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     user_jobs: Mapped[list[UserJob]] = relationship(
         back_populates="job", cascade="all, delete-orphan"

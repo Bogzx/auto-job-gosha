@@ -13,7 +13,7 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from gosha.database import get_session
 from gosha.embeddings import bytes_to_vec
@@ -136,6 +136,8 @@ async def get_feed(
         stmt = select(Job).where(
             Job.is_active.is_(True),
             Job.first_seen_at >= cutoff,
+            # Hide non-canonical cross-board duplicates
+            or_(Job.dedup_group_id.is_(None), Job.dedup_group_id == Job.id),
         )
         if user_vector is not None:
             stmt = stmt.where(Job.embedding.isnot(None))

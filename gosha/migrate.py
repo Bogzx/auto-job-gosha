@@ -52,6 +52,8 @@ async def run_migrations(conn: AsyncConnection) -> None:
         await _add_missing_columns(conn, "jobs", {
             "posted_at": dt_type,
             "embedding": blob_type,
+            "dedup_group_id": "INTEGER",
+            "last_checked_at": dt_type,
         })
 
     if "applications" in existing_tables:

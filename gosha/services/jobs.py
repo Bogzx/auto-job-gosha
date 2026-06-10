@@ -37,7 +37,11 @@ async def list_jobs(
     user_id: int, filters: JobFilters, page: int, per_page: int,
 ) -> tuple[list[Job], int]:
     """Active jobs matching the filters, newest first, plus total count."""
-    stmt = select(Job).where(Job.is_active.is_(True))
+    stmt = select(Job).where(
+        Job.is_active.is_(True),
+        # Hide non-canonical cross-board duplicates
+        or_(Job.dedup_group_id.is_(None), Job.dedup_group_id == Job.id),
+    )
 
     if filters.q.strip():
         needle = f"%{filters.q.strip()}%"
