@@ -5,7 +5,7 @@ const LOCATION_PRESETS = [
   'Cluj', 'Bucharest', 'Timisoara', 'Iasi', 'Brasov', 'Romania', 'Europe',
 ]
 const EXPERIENCE_LEVELS = ['intern', 'junior', 'mid', 'senior']
-const SOURCES = ['indeed', 'linkedin', 'glassdoor']
+const SOURCES = ['indeed', 'linkedin', 'glassdoor', 'ejobs', 'bestjobs', 'hipo', 'remoteok']
 const POSTED_OPTIONS = [
   { label: 'Any time', value: 0 },
   { label: 'Last 24h', value: 1 },

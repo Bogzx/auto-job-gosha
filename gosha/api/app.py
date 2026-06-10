@@ -114,7 +114,10 @@ def create_app() -> FastAPI:
             "smart_keywords": sorted(KEYWORD_EXPANSIONS.keys()),
             "locations": sorted(LOCATION_ALIASES.keys()),
             "experience_levels": ["intern", "junior", "mid", "senior", "any"],
-            "sources": ["indeed", "linkedin", "glassdoor"],
+            "sources": [
+                "indeed", "linkedin", "glassdoor",
+                "ejobs", "bestjobs", "hipo", "remoteok",
+            ],
         }
 
     @app.get(f"{API_PREFIX}/me", response_model=MeOut)

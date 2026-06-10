@@ -32,7 +32,7 @@ It is built for CS students and early-career engineers who are tired of refreshi
 
 | Feature | Description |
 |---|---|
-| **Multi-board scraping** | Indeed, LinkedIn, Glassdoor via [JobSpy](https://github.com/Bunsly/JobSpy) |
+| **Multi-board scraping** | Indeed, LinkedIn, Glassdoor via [JobSpy](https://github.com/Bunsly/JobSpy) + native adapters for eJobs.ro, BestJobs.ro, Hipo.ro, and RemoteOK |
 | **Smart keyword expansion** | `"computer science internship"` auto-expands to 19 related job titles |
 | **Location aliases** | Cluj, Bucharest, Berlin, "Romania", "Europe", "Remote", etc. |
 | **Semantic matching** | `all-mpnet-base-v2` sentence embeddings + cosine similarity |
