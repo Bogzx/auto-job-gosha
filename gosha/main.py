@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -51,9 +52,14 @@ async def main() -> None:
         await run_scrape_cycle(**kwargs)
         bot._last_scrape_at = _time.monotonic()
 
+    # Interval triggers count from process start, so without an explicit
+    # first run a 4-hour interval + frequent deploys would starve scraping
+    # (every restart resets the timer). Kick the first cycle shortly after
+    # boot; the interval continues from there.
     scheduler.add_job(
         _scrape_and_track,
         trigger=IntervalTrigger(minutes=settings.scrape_interval_minutes),
+        next_run_time=datetime.now(timezone.utc) + timedelta(minutes=3),
         kwargs={
             "bot": bot,
             "tunnel_manager": tunnel_mgr,
@@ -107,9 +113,12 @@ async def main() -> None:
         except Exception as exc:
             log.warning("Dead-link check failed: %s", exc)
 
+    # Same starvation concern as the scrape job: a 24h interval would
+    # never fire if deploys restart the bot more often than daily.
     scheduler.add_job(
         _deadlink_tick,
         trigger=IntervalTrigger(hours=24),
+        next_run_time=datetime.now(timezone.utc) + timedelta(minutes=45),
         id="deadlink_check",
         name="Dead job link detection",
         replace_existing=True,
