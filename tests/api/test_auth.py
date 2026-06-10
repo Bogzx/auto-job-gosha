@@ -156,6 +156,18 @@ async def test_callback_state_cookie_mismatch_rejected(client):
 
 
 @pytest.mark.asyncio
+async def test_login_json_format_returns_app_deep_link(client):
+    resp = await client.get("/api/v1/auth/discord/login", params={"format": "json"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["web_url"].startswith("https://discord.com/oauth2/authorize")
+    assert body["app_url"].startswith("discord://-/oauth2/authorize")
+    # Same state in both URLs, and the CSRF cookie is set
+    assert body["web_url"].split("state=")[1] == body["app_url"].split("state=")[1]
+    assert any("gosha_oauth_state" in h for h in resp.headers.get_list("set-cookie"))
+
+
+@pytest.mark.asyncio
 async def test_debug_login_disabled_by_default(client, monkeypatch):
     monkeypatch.delenv("DEBUG_LOGIN", raising=False)
     resp = await client.get(

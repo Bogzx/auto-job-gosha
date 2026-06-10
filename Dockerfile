@@ -16,8 +16,9 @@ RUN pip install --no-cache-dir --timeout 180 --retries 8 -r requirements.txt
 
 COPY . .
 
-# Ensure data directory exists and is owned by app user
-RUN mkdir -p /app/data && chown -R app:app /app/data
+# Ensure data + model-cache directories exist and are owned by app user
+# (the hf_cache volume inherits this ownership on first mount)
+RUN mkdir -p /app/data /home/app/.cache && chown -R app:app /app/data /home/app/.cache
 
 USER app
 

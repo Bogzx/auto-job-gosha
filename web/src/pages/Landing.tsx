@@ -1,7 +1,6 @@
 import { ArrowRight, FileText, MessageCircle, Sparkles } from 'lucide-react'
 import { Logo } from '../components/Logo'
-
-const DISCORD_LOGIN = '/api/v1/auth/discord/login'
+import { signInWithDiscord } from '../lib/signin'
 
 const PHOTOS = {
   desk: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1200&auto=format&fit=crop',
@@ -33,9 +32,9 @@ export default function Landing() {
       {/* ── Header ── */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
         <Logo size="lg" />
-        <a href={DISCORD_LOGIN} className="btn-quiet text-sm">
+        <button type="button" onClick={() => void signInWithDiscord()} className="btn-quiet text-sm">
           Sign in
-        </a>
+        </button>
       </header>
 
       {/* ── Hero ── */}
@@ -55,10 +54,14 @@ export default function Landing() {
             skills, and DMs you the ones worth your time.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <a href={DISCORD_LOGIN} className="btn-go px-6 py-3 text-base">
+            <button
+              type="button"
+              onClick={() => void signInWithDiscord()}
+              className="btn-go px-6 py-3 text-base"
+            >
               Sign in with Discord
               <ArrowRight size={18} aria-hidden />
-            </a>
+            </button>
             <span className="font-mono text-xs text-ink-faint">
               free · no card · 30 seconds
             </span>
@@ -141,13 +144,14 @@ export default function Landing() {
               The best roles get 200 applicants in the first 48 hours. Be
               early, every time.
             </h2>
-            <a
-              href={DISCORD_LOGIN}
+            <button
+              type="button"
+              onClick={() => void signInWithDiscord()}
               className="btn-go mt-8 border-paper px-6 py-3 text-base shadow-[3px_3px_0_0_var(--color-paper)]"
             >
               Get your feed
               <ArrowRight size={18} aria-hidden />
-            </a>
+            </button>
           </div>
         </div>
         <p className="rule-dotted mt-10 pt-6 text-center font-mono text-xs text-ink-faint">

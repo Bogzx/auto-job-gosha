@@ -49,8 +49,13 @@ def _verify_state(state: str) -> bool:
         return False
 
 
+# Deep-link scheme handled by the Discord mobile app — opens the authorize
+# screen in the app instead of a browser login wall.
+APP_AUTHORIZE_URL = "discord://-/oauth2/authorize"
+
+
 @router.get("/discord/login")
-async def discord_login() -> RedirectResponse:
+async def discord_login(format: str = ""):
     settings = load_web_settings()
     state = make_state()
     params = urlencode({
@@ -61,7 +66,19 @@ async def discord_login() -> RedirectResponse:
         "state": state,
         "prompt": "none",
     })
-    response = RedirectResponse(f"{AUTHORIZE_URL}?{params}", status_code=307)
+
+    if format == "json":
+        # The SPA uses this on mobile: try the app deep link first,
+        # fall back to the browser URL. State cookie set either way.
+        from fastapi.responses import JSONResponse
+
+        response: JSONResponse | RedirectResponse = JSONResponse({
+            "web_url": f"{AUTHORIZE_URL}?{params}",
+            "app_url": f"{APP_AUTHORIZE_URL}?{params}",
+        })
+    else:
+        response = RedirectResponse(f"{AUTHORIZE_URL}?{params}", status_code=307)
+
     response.set_cookie(
         OAUTH_STATE_COOKIE,
         state,
