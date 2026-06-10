@@ -51,10 +51,13 @@ export function prefetchLogin(): void {
   }
 }
 
-function androidIntentUrl(appUrl: string, webUrl: string): string {
-  // discord://-/oauth2/authorize?x=y  ->
-  // intent://-/oauth2/authorize?x=y#Intent;scheme=discord;package=com.discord;...
-  const withoutScheme = appUrl.replace(/^discord:\/\//, '')
+function androidIntentUrl(webUrl: string): string {
+  // Discord's Android intent filter matches discord://discord.com/<path>
+  // (unlike iOS, which uses discord://-/<path>). Build the intent from the
+  // https URL so the host is right:
+  // https://discord.com/oauth2/authorize?x ->
+  // intent://discord.com/oauth2/authorize?x#Intent;scheme=discord;...
+  const withoutScheme = webUrl.replace(/^https:\/\//, '')
   return (
     `intent://${withoutScheme}` +
     `#Intent;scheme=discord;package=com.discord;` +
@@ -73,7 +76,7 @@ export function signInWithDiscord(): void {
 
   const ua = navigator.userAgent
   if (/android/i.test(ua)) {
-    window.location.href = androidIntentUrl(urls.app_url, urls.web_url)
+    window.location.href = androidIntentUrl(urls.web_url)
     return
   }
 
