@@ -9,6 +9,14 @@ from httpx import ASGITransport, AsyncClient
 from gosha.models import User
 
 
+@pytest.fixture(autouse=True)
+def isolated_cv_dir(tmp_path, monkeypatch):
+    """Keep CV files out of the real data/ directory during API tests."""
+    import gosha.cover_letter as cl_mod
+
+    monkeypatch.setattr(cl_mod, "CV_DIR", tmp_path / "cvs")
+
+
 @pytest.fixture
 def web_env(monkeypatch):
     """Minimal env vars the web settings require."""

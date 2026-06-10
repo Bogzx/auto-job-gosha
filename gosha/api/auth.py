@@ -186,3 +186,16 @@ async def _join_guild(
 async def logout(response: Response) -> OkOut:
     clear_session_cookie(response)
     return OkOut()
+
+
+@router.get("/debug-login")
+async def debug_login(uid: int) -> RedirectResponse:
+    """Local-testing backdoor: session for an arbitrary user id.
+
+    Hard-disabled unless DEBUG_LOGIN=1 is set — never enable in production.
+    """
+    if os.getenv("DEBUG_LOGIN") != "1":
+        raise ApiError(404, "not_found", "Not found.")
+    response = RedirectResponse("/", status_code=307)
+    set_session_cookie(response, uid)
+    return response

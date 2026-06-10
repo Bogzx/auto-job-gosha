@@ -156,6 +156,15 @@ async def test_callback_state_cookie_mismatch_rejected(client):
 
 
 @pytest.mark.asyncio
+async def test_debug_login_disabled_by_default(client, monkeypatch):
+    monkeypatch.delenv("DEBUG_LOGIN", raising=False)
+    resp = await client.get(
+        "/api/v1/auth/debug-login", params={"uid": 1}, follow_redirects=False
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_logout_clears_cookie(client, web_user):
     _user, cookies = web_user
     resp = await client.post("/api/v1/auth/logout", cookies=cookies)
