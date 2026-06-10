@@ -35,6 +35,10 @@ GEMINI_MODELS = [
     "gemma-4-31b-it",
 ]
 
+# OpenRouter (alternative LLM provider; OpenAI-compatible API)
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-chat"
+
 # CV storage directory
 CV_DIR = Path(__file__).resolve().parent.parent / "data" / "cvs"
 
@@ -88,13 +92,18 @@ def _clean_pdf_text(text: str) -> str:
 
 
 async def extract_text_from_attachment(attachment) -> str | None:
-    """Extract text from a Discord attachment (PDF or plain text).
-
-    For PDFs, tries PyPDF2/pypdf. For .txt/.md, reads directly.
-    Returns None on failure.
-    """
-    filename = attachment.filename.lower()
+    """Extract text from a Discord attachment (PDF or plain text)."""
     content = await attachment.read()
+    return extract_text(attachment.filename, content)
+
+
+def extract_text(filename: str, content: bytes) -> str | None:
+    """Extract CV text from raw file bytes (PDF/DOCX/TXT/MD).
+
+    Shared by the Discord upload path and the web API upload path.
+    Returns None on failure or unsupported extension.
+    """
+    filename = filename.lower()
 
     if filename.endswith(".txt") or filename.endswith(".md"):
         return content.decode("utf-8", errors="replace")
@@ -158,6 +167,58 @@ async def get_monthly_usage(user_id: int) -> int:
 # ---------------------------------------------------------------------------
 # Gemini API call
 # ---------------------------------------------------------------------------
+
+
+async def _call_llm(prompt: str) -> str | None:
+    """Dispatch to the configured LLM provider.
+
+    LLM_PROVIDER=gemini|openrouter forces a provider; otherwise OpenRouter
+    is used whenever OPENROUTER_API_KEY is set, falling back to Gemini.
+    """
+    provider = os.getenv("LLM_PROVIDER", "").lower().strip()
+    if not provider:
+        provider = "openrouter" if os.getenv("OPENROUTER_API_KEY") else "gemini"
+
+    if provider == "openrouter":
+        return await _call_openrouter(prompt)
+    return await _call_gemini(prompt)
+
+
+async def _call_openrouter(prompt: str) -> str | None:
+    """Call OpenRouter's OpenAI-compatible chat completions API."""
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    if not api_key:
+        log.error("OPENROUTER_API_KEY not set — OpenRouter unavailable")
+        return None
+    model = os.getenv("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
+
+    import httpx
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+        "max_tokens": 2048,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                OPENROUTER_URL,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "X-Title": "GOSHA Jobs",
+                },
+            )
+        if resp.status_code != 200:
+            log.error("OpenRouter error %d: %s", resp.status_code, resp.text[:300])
+            return None
+        choices = resp.json().get("choices") or []
+        content = (choices[0].get("message") or {}).get("content") if choices else None
+        return content.strip() if content else None
+    except httpx.HTTPError as exc:
+        log.error("OpenRouter request failed: %s", exc)
+        return None
 
 
 async def _call_gemini(prompt: str) -> str | None:
@@ -288,8 +349,12 @@ async def generate_cover_letter(
         )
         found = existing.scalar_one_or_none()
         if found:
-            # Auto-expire cached letters older than 30 days
-            age_days = (datetime.now(timezone.utc) - found.created_at).days if found.created_at else 999
+            # Auto-expire cached letters older than 30 days.
+            # SQLite returns naive datetimes — normalize to UTC before math.
+            created_at = found.created_at
+            if created_at is not None and created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            age_days = (datetime.now(timezone.utc) - created_at).days if created_at else 999
             if not force_regenerate and age_days < 30:
                 return found.content, True
             # Stale or force-regenerate: delete and recreate
@@ -310,7 +375,7 @@ async def generate_cover_letter(
 
     # Generate
     prompt = _build_prompt(cv_text, job)
-    content = await _call_gemini(prompt)
+    content = await _call_llm(prompt)
     if not content:
         return None, False
 
