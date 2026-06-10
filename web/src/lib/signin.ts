@@ -1,19 +1,22 @@
-// Discord sign-in that opens the app when installed.
+// Discord sign-in that opens the app where the platform allows it.
 //
-// The hard constraint: mobile browsers only allow custom-scheme navigation
-// (discord://) when it happens SYNCHRONOUSLY inside a user gesture. Any
-// `await` before navigating breaks the gesture chain and Chrome silently
-// blocks the app link. So the OAuth URLs (and the CSRF state cookie) are
-// prefetched on page load, and the click handler navigates immediately.
+// Reality check (per Discord's API team, discord-api-docs#1296/#7259):
+// for OAuth flows with identity scopes, Discord INTENTIONALLY does not
+// deep link into the mobile app — the browser authorize page is the
+// supported path on Android. Their assetlinks.json does declare
+// get_login_creds, so Chrome can autofill Discord credentials from
+// Google Password Manager, and after the first login the discord.com
+// session persists, making future sign-ins one tap.
 //
 // Per platform:
-//  - Android Chrome: intent:// URL with a built-in browser_fallback_url —
-//    Chrome opens the app if installed, else loads the fallback. No timers.
-//  - iOS: plain https navigation. Discord declares /oauth2/authorize as a
-//    Universal Link (verified in their apple-app-site-association), so iOS
-//    itself opens the app when installed and stays in Safari when not.
-//  - Desktop: discord:// attempt + timed fallback to the web flow,
-//    canceled when the app steals focus.
+//  - Android: straight https navigation to the authorize page.
+//  - iOS: plain https navigation; Discord declares /oauth2/authorize as a
+//    Universal Link, so iOS may hand it to the app when installed.
+//  - Desktop: discord:// attempt (the desktop app accepts it) + timed
+//    fallback to the web flow, canceled when the app steals focus.
+//
+// The custom-scheme attempt must run SYNCHRONOUSLY inside the click
+// gesture, hence the prefetched URLs (+ CSRF state cookie) on page load.
 
 const LOGIN_PATH = '/api/v1/auth/discord/login'
 // State cookie lives 10 min; refresh the prefetched URLs well within that.
@@ -51,20 +54,6 @@ export function prefetchLogin(): void {
   }
 }
 
-function androidIntentUrl(webUrl: string): string {
-  // Discord's Android intent filter matches discord://discord.com/<path>
-  // (unlike iOS, which uses discord://-/<path>). Build the intent from the
-  // https URL so the host is right:
-  // https://discord.com/oauth2/authorize?x ->
-  // intent://discord.com/oauth2/authorize?x#Intent;scheme=discord;...
-  const withoutScheme = webUrl.replace(/^https:\/\//, '')
-  return (
-    `intent://${withoutScheme}` +
-    `#Intent;scheme=discord;package=com.discord;` +
-    `S.browser_fallback_url=${encodeURIComponent(webUrl)};end`
-  )
-}
-
 /** Synchronous within the click gesture — required for app deep links. */
 export function signInWithDiscord(): void {
   const urls = cached
@@ -75,17 +64,12 @@ export function signInWithDiscord(): void {
   }
 
   const ua = navigator.userAgent
-  if (/android/i.test(ua)) {
-    window.location.href = androidIntentUrl(urls.web_url)
-    return
-  }
-
-  const isIos =
-    /iphone|ipad|ipod/i.test(ua) ||
+  const isMobile =
+    /android|iphone|ipad|ipod/i.test(ua) ||
     // iPadOS reports as Mac but has touch
     (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
-  if (isIos) {
-    // Universal Link: iOS opens the Discord app itself when installed
+  if (isMobile) {
+    // Browser authorize page (iOS may hand it to the app via Universal Link)
     window.location.href = urls.web_url
     return
   }
