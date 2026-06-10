@@ -304,19 +304,16 @@ async def match_jobs_for_subscription(
 
     keywords = sub.keywords
 
-    # Semantic matching path
+    # Semantic matching path — reuses embeddings stored at scrape time
+    # instead of re-encoding the same postings for every subscription.
     if semantic_matcher and semantic_matcher.available:
         query_emb = semantic_matcher.encode_subscription(
             keywords, sub.locations, sub.experience_levels,
         )
         if query_emb is not None:
-            from gosha.matching import build_job_text
+            from gosha.embeddings import score_jobs_against_query
 
-            job_texts = [
-                build_job_text(j.title, j.company, j.description)
-                for j in candidates
-            ]
-            scores = semantic_matcher.score_jobs(query_emb, job_texts)
+            scores = score_jobs_against_query(query_emb, candidates)
             matches = [
                 (job, score)
                 for job, score in zip(candidates, scores)

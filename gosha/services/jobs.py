@@ -12,14 +12,49 @@ from gosha.database import get_session
 from gosha.domain.errors import NotFoundError
 from gosha.filters import (
     location_matches,
+    matches_company_blacklist,
+    matches_excluded_keywords,
     matches_experience_level,
     normalize_location,
 )
-from gosha.models import Application, Job, UserJob
+from gosha.models import Application, Job, Subscription, UserJob
 
 log = logging.getLogger(__name__)
 
 MAX_CANDIDATES = 2000
+
+
+async def get_user_exclusions(user_id: int) -> tuple[list[str], list[str]]:
+    """(blacklisted companies, excluded keywords) across ALL the user's searches.
+
+    The contract: blacklisting a company in any search hides it everywhere —
+    feed, browse, and DMs. Paused searches still count; the user's intent
+    ("never show me X") doesn't pause with the search.
+    """
+    async with get_session() as session:
+        result = await session.execute(
+            select(Subscription).where(Subscription.user_id == user_id)
+        )
+        subs = result.scalars().all()
+
+    blacklist: list[str] = []
+    excluded: list[str] = []
+    for sub in subs:
+        blacklist.extend(sub.company_blacklist)
+        excluded.extend(sub.excluded_keywords)
+    return blacklist, excluded
+
+
+def passes_user_exclusions(
+    job: Job, blacklist: list[str], excluded: list[str],
+) -> bool:
+    if blacklist and matches_company_blacklist(job.company, blacklist):
+        return False
+    if excluded and matches_excluded_keywords(
+        f"{job.title} {job.description or ''}", excluded
+    ):
+        return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -66,6 +101,14 @@ async def list_jobs(
     async with get_session() as session:
         result = await session.execute(stmt)
         candidates = list(result.scalars().all())
+
+    # The user's standing exclusions (blacklists/excluded words from any of
+    # their searches) apply to browsing too — "never show me X" means never.
+    blacklist, excluded = await get_user_exclusions(user_id)
+    if blacklist or excluded:
+        candidates = [
+            j for j in candidates if passes_user_exclusions(j, blacklist, excluded)
+        ]
 
     # Location + experience need the alias/regex helpers (post-SQL)
     if filters.locations or filters.remote:

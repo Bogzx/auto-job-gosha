@@ -20,9 +20,9 @@
   --color-sky: #2563eb;       /* links, info */
   --color-sky-soft: #e4edfd;
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Spline Sans Mono", ui-monospace, monospace;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --shadow-press: 3px 3px 0 0 var(--color-ink);
   --shadow-press-sm: 2px 2px 0 0 var(--color-ink);
@@ -169,10 +169,9 @@ body::before {
 
 @utility headline {
   font-family: var(--font-display);
-  font-weight: 640;
-  letter-spacing: -0.015em;
-  line-height: 1.05;
-  font-variation-settings: "opsz" 60;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
 }
 
 @utility input-ink {

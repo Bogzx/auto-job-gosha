@@ -66,6 +66,37 @@ async def embed_new_jobs(limit: int = DEFAULT_BATCH) -> int:
     return len(jobs)
 
 
+def score_jobs_against_query(query_vec: np.ndarray, jobs: list[Job]) -> list[float]:
+    """Cosine scores of jobs vs a query vector, reusing stored embeddings.
+
+    Jobs without a stored vector are encoded on the fly (one batch); when
+    the model is unavailable they score 0.0. This is what lets the match
+    stage avoid re-encoding the same postings for every subscription.
+    """
+    if not jobs:
+        return []
+
+    vectors: list[np.ndarray | None] = [
+        bytes_to_vec(job.embedding) if job.embedding else None for job in jobs
+    ]
+
+    missing = [i for i, vec in enumerate(vectors) if vec is None]
+    if missing:
+        texts = [
+            build_job_text(jobs[i].title, jobs[i].company, jobs[i].description)
+            for i in missing
+        ]
+        encoded = encode_texts(texts)
+        if encoded is not None:
+            for idx, vec in zip(missing, encoded):
+                vectors[idx] = np.asarray(vec, dtype=np.float32)
+
+    return [
+        float(vec @ query_vec) if vec is not None else 0.0
+        for vec in vectors
+    ]
+
+
 async def embed_user_cv(user_id: int, cv_text: str) -> bool:
     """Compute and store the embedding of a user's CV text."""
     vectors = encode_texts([cv_text[:8000]])

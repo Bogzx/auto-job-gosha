@@ -1,0 +1,202 @@
+{
+ "id": 1961022,
+ "title": "Senior Software Engineer",
+ "company": {
+  "id": 336993,
+  "name": "Trimble Solutions (UK) Ltd",
+  "logoUrl": "/img/logos/3/336993.jpg",
+  "verified": true,
+  "positions": 1,
+  "slug": "trimble-romania-s-r-l"
+ },
+ "positions": 1,
+ "creationDate": "2026-06-01T15:46:56Z",
+ "expirationDate": "2026-07-01",
+ "contractTypesIds": [
+  5
+ ],
+ "departmentsIds": [
+  38,
+  57
+ ],
+ "industriesIds": [
+  18
+ ],
+ "educationLevelsIds": [
+  4
+ ],
+ "languagesIds": [
+  1
+ ],
+ "locations": [
+  {
+   "cityId": 10,
+   "latitude": "45.667000",
+   "longitude": "25.617000",
+   "countyId": 9
+  }
+ ],
+ "details": {
+  "idealCandidate": "Desired skills:<br/>\n<br/>\n•Willingness to take on a leadership role and be one of the founding members of a new agile software team located in Brasov, Romania<br/>\n•Experience of Agile methodology –particularly as a Scrum Master, would be an advantage<br/>\n•Knowledge of the following: C/C++, C#/.NET and .NET Core, .NET 10, Client/server application development<br/>\n•Experience with database frameworks such as SQLite or MongoDB<br/>\n•Knowledge and skills regarding use of AI Tools for Accelerated Software Development such as Copilot and Cursor<br/>\n•Understanding of software development fundamentals such as OOP, SOLID &amp; Design Patterns<br/>\n•Experience with technologies such as Kubernetes, Kafka, REST, GraphQL, gRPC and Protobuffers<br/>\n•DevOps experience in cloud environments such as AWS and Azure would be a great advantage<br/>\n•Fluent English and local office language (Romanian)<br/>\n<br/>\nEducational Requirements:<br/>\n<br/>\n•Bachelor&#39;s degree in computer science or other relevant technical field required, or equivalent combination of relevant education and experience<br/>\n•Masters degree in computer science or in relevant engineering discipline with significant computer science or CAE content, or an equivalent combination of relevant education and experience<br/>\n<br/>\nAttitude and enthusiasm are everything! If you have some but not all qualifications and feel motivated to apply, we encourage you to do so!",
+  "jobDescription": "Do you want to make a difference? Help us to create software that improves people&#39;s lives!<br/>\n<br/>\nAs a developer in Trimble you will be part of a global team, but located in Brasov, Romania, together with highly skilled, engaging teams of software engineers and developers.<br/>\n<br/>\nThe new team will be responsible for developing Trimble Infrastructure Design Suite. An international software solution for designers, engineers, contractors and authorities in the construction industry. Trimble IDS is a ground-breaking solution connecting processes, people and information, built using Trimble Connect as a Common Data Environment for collaboration.<br/>\n<br/>\nBeing part of the Civil Design and Engineering team, you will transform the way the construction industry works today. Develop the next-level of technology by bridging the gap between design and construct, as well as as-built data in infrastructure projects. The team collaborates closely with talented engineering teams working on other Trimble products such as SketchUp, SiteVision and Tekla.<br/>\n<br/>\nHow you can contribute:<br/>\n<br/>\n•Take a leading role in establishing a new delivery team for Civil Design and Engineering.<br/>\n•Work across borders in an exciting international, multi-disciplinary, innovative environment<br/>\n•Contribution to the greater Trimble Engineering team with expertise and knowledge<br/>\n•Help define and encourage good Software Engineering principles and discipline<br/>\n•Participate in ground-breaking web and cloud technology initiatives<br/>\n•Make an impact on the development of products for tomorrow’s global infrastructure solutions.<br/>\n•Be part of a team with close customer collaboration where value is created and appreciated first hand.<br/>\n<br/>\nIf you want to know more about the role, contact Engineering Director John Arthur at john_arthur@trimble.com for technical questions or recruiter Dominika Zagrodzka at dominika_zagrodzka@trimble.com for personnel-related questions.<br/>\nWe offer you:<br/>\n<br/>\n•Versatile and challenging tasks in a global company<br/>\n•Innovative and pioneering culture<br/>\n•Passion to help each other succeed<br/>\n•Turn your great software ideas into (mixed) reality, from design, implement and test<br/>\n•Work on long term product development and make a lasting contribution<br/>\n•An informal and flexible working environment<br/>\n•Opportunities to grow inside the company<br/>\n•Inspiring work atmosphere where your competence is highly appreciated<br/>\n•Competitive salary<br/>\n•Attractive insurances including health insurance and a competitive pension plan",
+  "companyDescription": "About Trimble<br/>\n<br/>\nTrimble is transforming the way the world works by delivering products and services that connect the physical and digital worlds. Core technologies in positioning, modeling, connectivity and data analytics enable customers to improve productivity, quality, safety and sustainability. From purpose built products to enterprise life-cycle solutions, Trimble software, hardware and services are transforming a broad range of industries such as agriculture, construction, geospatial and transportation and logistics.<br/>\n<br/>\nOur employees represent this diversity and can be found in over 30 countries, working closely with their colleagues around the world. Due to our geographic, product and customer reach, there is plenty of room at Trimble for exceptional people to grow. Come position yourself with an innovative industry leader and position yourself for success.<br/>\n<br/>\nAbout Trimble Solutions in Norway and Sweden<br/>\n<br/>\nJoin a leading company in the Civil Design and Engineering industry. Our offices in Sandvika, Norway, is considered a center of excellence and knowledge hub, developing software solutions for infrastructure projects. Our office in Gothenburg, Sweden, is the head office in Sweden. The Gothenburg office is part of the Scandinavian team and works closely with the Sandvika hub, as well as offices in Stockholm and Aarhus. Our technology-leading solutions are part of a global product portfolio in constant development to provide world-class results for the individual user, customer, partner - and society. As part of our team you will contribute to transforming the way the world works. We offer you a welcoming professional environment where you have the opportunity to influence your own workday as well as the solutions and functionalities we develop and improve.",
+  "metaTags": "Desired skills:\r\n\r\n•Willingness to take on a leadership role and be one of the founding members of a new agile software team located in Brasov,..."
+ },
+ "similarJobs": [
+  {
+   "id": 1960657,
+   "title": "Senior Full Stack Developer",
+   "company": {
+    "id": 318126,
+    "name": "Bigger Picture Solutions SRL",
+    "logoUrl": "/img/logos/3/318126.png",
+    "slug": "bigger-picture-solutions-s-r-l"
+   },
+   "creationDate": "2026-05-29T12:44:37+03:00",
+   "positions": 1,
+   "locations": [
+    {
+     "cityId": 1,
+     "address": "București, România"
+    }
+   ],
+   "slug": "senior-full-stack-developer",
+   "expirationDate": "2026-06-28",
+   "careerLevelsIds": [
+    6
+   ],
+   "contractTypesIds": [
+    5
+   ],
+   "departmentsIds": [
+    57
+   ]
+  },
+  {
+   "id": 1960604,
+   "title": "Dezvoltator Software Fullstack Senior (Java & Angular)",
+   "company": {
+    "id": 263279,
+    "name": "CERTSIGN SA",
+    "logoUrl": "/img/logos/2/263279.png",
+    "slug": "certsign"
+   },
+   "creationDate": "2026-05-29T11:22:54+03:00",
+   "positions": 1,
+   "locations": [
+    {
+     "cityId": 381
+    }
+   ],
+   "slug": "dezvoltator-software-fullstack-senior-java-angular",
+   "expirationDate": "2026-06-28",
+   "industriesIds": [
+    18
+   ],
+   "careerLevelsIds": [
+    6
+   ],
+   "republishDate": "2026-06-05T08:35:00+03:00",
+   "contractTypesIds": [
+    5
+   ],
+   "departmentsIds": [
+    57
+   ]
+  },
+  {
+   "id": 1961955,
+   "title": "Industrial Software Developer",
+   "company": {
+    "id": 40795,
+    "name": "SC GROVINVEST SRL",
+    "logoUrl": "/img/logos/4/40795.jpg",
+    "slug": "sc-grovinvest-srl"
+   },
+   "creationDate": "2026-06-04T14:53:13+03:00",
+   "positions": 1,
+   "locations": [
+    {
+     "cityId": 367,
+     "address": "455200 Jibou, România"
+    }
+   ],
+   "slug": "industrial-software-developer",
+   "expirationDate": "2026-07-04",
+   "industriesIds": [
+    31
+   ],
+   "careerLevelsIds": [
+    4
+   ],
+   "contractTypesIds": [
+    5
+   ],
+   "departmentsIds": [
+    36,
+    57
+   ]
+  }
+ ],
+ "slug": "senior-software-engineer",
+ "verified": true,
+ "selectionCriteria": {},
+ "careerLevelsIds": [
+  4,
+  6
+ ],
+ "externalUrl": "https://stats.the-network.com/redirect/cdab6414-ced3-46fb-b1ce-602540a75ef3",
+ "republishDate": "2026-06-10T08:40:00+03:00",
+ "serviceResponse": {
+  "id": "641",
+  "slug": "641",
+  "name": "Premium Video Ad, daily update (30 days)",
+  "type": "anunt",
+  "attributes": [
+   {
+    "id": 186,
+    "value": "30",
+    "attributeSlug": "duration",
+    "attributeName": "Durata",
+    "attributeId": 186
+   },
+   {
+    "id": 279,
+    "value": "video",
+    "attributeSlug": "ad_type",
+    "attributeName": "Tip Anunt",
+    "attributeId": 279
+   },
+   {
+    "id": 336,
+    "value": "daily",
+    "attributeSlug": "update",
+    "attributeName": "Reactualizare",
+    "attributeId": 336
+   },
+   {
+    "id": 337,
+    "value": "1",
+    "attributeSlug": "video",
+    "attributeName": "Video",
+    "attributeId": 337
+   },
+   {
+    "id": 388,
+    "value": "1",
+    "attributeSlug": "custom",
+    "attributeName": "Customizare",
+    "attributeId": 388
+   },
+   {
+    "id": 401,
+    "value": "1",
+    "attributeSlug": "homepage",
+    "attributeName": "Afisare homepage",
+    "attributeId": 401
+   }
+  ]
+ },
+ "jobType": "active",
+ "lastModified": "2026-06-10T08:10:44Z"
+}

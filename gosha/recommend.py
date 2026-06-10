@@ -157,6 +157,16 @@ async def get_feed(
                 from gosha.cover_letter import load_cv
                 cv_text = load_cv(user_id) or ""
 
+    # Standing exclusions: blacklisted companies / excluded words from any
+    # of the user's searches never appear in the feed.
+    from gosha.services.jobs import get_user_exclusions, passes_user_exclusions
+
+    blacklist, excluded = await get_user_exclusions(user_id)
+    if blacklist or excluded:
+        candidates = [
+            j for j in candidates if passes_user_exclusions(j, blacklist, excluded)
+        ]
+
     if user_vector is None:
         candidates.sort(
             key=lambda j: j.first_seen_at or datetime.min.replace(tzinfo=timezone.utc),

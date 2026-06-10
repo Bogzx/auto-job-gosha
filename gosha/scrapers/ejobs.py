@@ -7,7 +7,9 @@ using the public /cities id→name map (fetched once, cached).
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 from datetime import datetime
 
 import httpx
@@ -22,8 +24,48 @@ API_URL = "https://api.ejobs.ro/jobs"
 CITIES_URL = "https://api.ejobs.ro/cities"
 JOB_URL_TEMPLATE = "https://www.ejobs.ro/user/locuri-de-munca/{slug}/{id}"
 PAGE_SIZE = 100
+# Detail fetches give real descriptions (better matching + cover letters)
+# but cost one request each — enrich only the first N matches per query.
+MAX_DETAIL_FETCHES = 25
+DETAIL_CONCURRENCY = 5
+
+_TAG_RE = re.compile(r"<[^>]+>")
 
 _city_names: dict[int, str] | None = None
+
+
+def _extract_description(detail: dict) -> str:
+    """Plain-text description from a /jobs/{id} payload (HTML stripped)."""
+    details = detail.get("details") or {}
+    parts = [
+        details.get("jobDescription"),
+        details.get("idealCandidate"),
+    ]
+    text = "\n\n".join(p for p in parts if p)
+    text = _TAG_RE.sub(" ", text)
+    return re.sub(r"[ \t]{2,}", " ", text).strip()[:6000]
+
+
+async def _fetch_descriptions(
+    client: httpx.AsyncClient, job_ids: list[int],
+) -> dict[int, str]:
+    """Fetch detail descriptions for up to MAX_DETAIL_FETCHES jobs."""
+    semaphore = asyncio.Semaphore(DETAIL_CONCURRENCY)
+
+    async def fetch(job_id: int) -> tuple[int, str]:
+        async with semaphore:
+            try:
+                resp = await client.get(f"{API_URL}/{job_id}")
+                if resp.status_code == 200:
+                    return job_id, _extract_description(resp.json())
+            except httpx.HTTPError:
+                pass
+            return job_id, ""
+
+    results = await asyncio.gather(
+        *(fetch(job_id) for job_id in job_ids[:MAX_DETAIL_FETCHES])
+    )
+    return {job_id: text for job_id, text in results if text}
 
 
 async def _get_city_map(client: httpx.AsyncClient) -> dict[int, str]:
@@ -39,8 +81,14 @@ async def _get_city_map(client: httpx.AsyncClient) -> dict[int, str]:
     return _city_names
 
 
-def _parse(payload: dict, query: SearchQuery, city_names: dict[int, str]) -> list[RawJob]:
+def _parse(
+    payload: dict,
+    query: SearchQuery,
+    city_names: dict[int, str],
+    descriptions: dict[int, str] | None = None,
+) -> list[RawJob]:
     _search_loc, match_subs = normalize_location(query.location)
+    descriptions = descriptions or {}
 
     jobs: list[RawJob] = []
     for item in payload.get("jobs", []):
@@ -79,7 +127,7 @@ def _parse(payload: dict, query: SearchQuery, city_names: dict[int, str]) -> lis
             title=str(item.get("title", "")),
             company=str(company),
             location=f"{location_text}, Romania" if location_text else "Romania",
-            description="",  # list payload has no description; title carries the signal
+            description=descriptions.get(job_id, ""),
             salary_min=salary_min,
             salary_max=salary_max,
             salary_currency=currency,
@@ -104,7 +152,15 @@ class EjobsScraper:
                     "q": query.keyword,
                 })
                 resp.raise_for_status()
-                return _parse(resp.json(), query, city_names)
+                payload = resp.json()
+
+                # Only enrich postings that survive the location filter
+                matched = _parse(payload, query, city_names)
+                matched_ids = [
+                    int(job.url.rstrip("/").rsplit("/", 1)[-1]) for job in matched
+                ]
+                descriptions = await _fetch_descriptions(client, matched_ids)
+                return _parse(payload, query, city_names, descriptions)
         except Exception as exc:
             log.warning("eJobs scrape failed for %r: %s", query.keyword, exc)
             return []

@@ -20,6 +20,15 @@ def test_normalize_key_ignores_case_punctuation_and_legal_suffixes():
     assert a != c
 
 
+def test_normalize_key_ignores_decorations_and_word_order():
+    base = dedup.normalize_key("Senior Python Developer", "Acme")
+    assert dedup.normalize_key("Senior Python Developer (Remote)", "Acme") == base
+    assert dedup.normalize_key("Python Developer Senior [Hybrid]", "Acme") == base
+    assert dedup.normalize_key("Senior Python Developer - Cluj-Napoca", "Acme") == base
+    # A genuinely different seniority stays distinct
+    assert dedup.normalize_key("Junior Python Developer", "Acme") != base
+
+
 @pytest.mark.asyncio
 async def test_assign_groups_marks_duplicates(patched_db, session):
     j1 = Job(url="https://indeed.com/x", title="Python Dev", company="Acme", source="indeed")

@@ -26,14 +26,31 @@ WINDOW_DAYS = 30
 _LEGAL_SUFFIXES = re.compile(
     r"\b(s\.?r\.?l\.?|s\.?a\.?|inc|llc|ltd|gmbh|srl)\b", re.IGNORECASE
 )
+_PARENTHETICAL = re.compile(r"\([^)]*\)|\[[^\]]*\]")
 _NON_ALNUM = re.compile(r"[^a-z0-9]+")
+
+# Title tokens that boards bolt on without changing the actual role
+_TITLE_NOISE = frozenset({
+    "m", "f", "d", "mfd", "remote", "hybrid", "onsite", "on", "site",
+    "urgent", "new", "hiring", "now", "ro", "romania", "cluj", "napoca",
+    "bucharest", "bucuresti", "timisoara", "iasi", "brasov", "full", "time",
+    "part", "job", "position", "role",
+})
 
 
 def normalize_key(title: str, company: str) -> str:
+    """Order-insensitive, decoration-insensitive identity for a posting.
+
+    "Senior Python Developer (Remote) - Cluj" and "Python Developer Senior"
+    at the same employer map to the same key; different roles don't.
+    """
+    title = _PARENTHETICAL.sub(" ", title or "")
+    tokens = sorted(
+        set(_NON_ALNUM.split(title.lower())) - _TITLE_NOISE - {""}
+    )
     company = _LEGAL_SUFFIXES.sub("", company or "")
-    title_part = _NON_ALNUM.sub("", (title or "").lower())
     company_part = _NON_ALNUM.sub("", company.lower())
-    return f"{title_part}::{company_part}"
+    return f"{'-'.join(tokens)}::{company_part}"
 
 
 async def assign_dedup_groups(window_days: int = WINDOW_DAYS) -> int:
