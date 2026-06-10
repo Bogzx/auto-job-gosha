@@ -9,7 +9,10 @@
 // Per platform:
 //  - Android Chrome: intent:// URL with a built-in browser_fallback_url —
 //    Chrome opens the app if installed, else loads the fallback. No timers.
-//  - iOS / desktop: discord:// attempt + timed fallback to the web flow,
+//  - iOS: plain https navigation. Discord declares /oauth2/authorize as a
+//    Universal Link (verified in their apple-app-site-association), so iOS
+//    itself opens the app when installed and stays in Safari when not.
+//  - Desktop: discord:// attempt + timed fallback to the web flow,
 //    canceled when the app steals focus.
 
 const LOGIN_PATH = '/api/v1/auth/discord/login'
@@ -74,8 +77,18 @@ export function signInWithDiscord(): void {
     return
   }
 
-  // iOS + desktop: try the app scheme, fall back to the web flow unless
-  // the app visibly took over.
+  const isIos =
+    /iphone|ipad|ipod/i.test(ua) ||
+    // iPadOS reports as Mac but has touch
+    (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
+  if (isIos) {
+    // Universal Link: iOS opens the Discord app itself when installed
+    window.location.href = urls.web_url
+    return
+  }
+
+  // Desktop: try the app scheme, fall back to the web flow unless the
+  // app visibly took over.
   const fallback = window.setTimeout(() => {
     window.location.href = urls.web_url
   }, 1600)
