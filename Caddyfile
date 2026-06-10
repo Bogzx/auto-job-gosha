@@ -1,7 +1,8 @@
 # Caddy config for the GOSHA web platform.
 # CADDY_SITE defaults to the production domain (auto-HTTPS via Let's Encrypt).
-# For local prod-mode testing: CADDY_SITE=:8080 docker compose -f docker-compose.prod.yml up
-{$CADDY_SITE:jobs.bogdantruta.com} {
+# Behind an existing host reverse proxy, set CADDY_SITE=:80 and bind the
+# container to localhost (see CADDY_HTTP_BIND in docker-compose.prod.yml).
+{$CADDY_SITE:gosha.bogdantruta.com} {
 	encode gzip zstd
 
 	# API -> FastAPI container

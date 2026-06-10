@@ -1,4 +1,4 @@
-# GOSHA — Discord Job Hunter Bot
+﻿# GOSHA â€” Discord Job Hunter Bot
 
 GOSHA (a.k.a. **JobHunter**) is a self-hosted Discord bot that continuously scrapes **Indeed**, **LinkedIn**, and **Glassdoor**, matches fresh postings against each user's subscriptions using semantic AI, and delivers them to Discord DMs with interactive feedback buttons and AI-generated cover letters.
 
@@ -10,7 +10,7 @@ It is built for CS students and early-career engineers who are tired of refreshi
 
 1. [Feature Overview](#feature-overview)
 2. [How It Works](#how-it-works)
-3. [User Guide — Discord Commands](#user-guide--discord-commands)
+3. [User Guide â€” Discord Commands](#user-guide--discord-commands)
 4. [Smart Keywords & Locations](#smart-keywords--locations)
 5. [Free vs Pro vs Unlimited](#free-vs-pro-vs-unlimited)
 6. [Self-Hosting Quick Start](#self-hosting-quick-start)
@@ -36,11 +36,11 @@ It is built for CS students and early-career engineers who are tired of refreshi
 | **Smart keyword expansion** | `"computer science internship"` auto-expands to 19 related job titles |
 | **Location aliases** | Cluj, Bucharest, Berlin, "Romania", "Europe", "Remote", etc. |
 | **Semantic matching** | `all-mpnet-base-v2` sentence embeddings + cosine similarity |
-| **Feedback learning** | 👍/👎 buttons build a personal preference profile that adjusts future scores |
+| **Feedback learning** | ðŸ‘/ðŸ‘Ž buttons build a personal preference profile that adjusts future scores |
 | **AI cover letters** | Gemini reads your CV + a job posting and writes a tailored cover letter |
-| **Application tracker** | `/apply`, `/update_application` — a lightweight Kanban in Discord |
+| **Application tracker** | `/apply`, `/update_application` â€” a lightweight Kanban in Discord |
 | **SSH SOCKS5 proxy rotation** | Route scraping through remote VPSs to dodge IP bans |
-| **Cross-board dedup** | Same job on Indeed + LinkedIn + Glassdoor → one notification |
+| **Cross-board dedup** | Same job on Indeed + LinkedIn + Glassdoor â†’ one notification |
 | **Web admin dashboard** | FastAPI on localhost:8080, reached via SSH tunnel |
 | **Pause / Resume** | Freeze subscriptions during exams or after you get an offer |
 | **Tier system** | Free / Pro / Unlimited with configurable quotas per tier |
@@ -52,46 +52,46 @@ It is built for CS students and early-career engineers who are tired of refreshi
 ## How It Works
 
 ```
-           ┌──────────────────────────────────────────────────────┐
-           │                Discord users via DMs                 │
-           └────────────┬─────────────────────────▲───────────────┘
-                        │ /subscribe, /quickstart  │ job embed + buttons
-                        ▼                          │
-        ┌──────────────────────────────┐           │
-        │  Discord bot (discord.py)    │───────────┘
-        └──────────────┬───────────────┘
-                       │
-          APScheduler  │ every N minutes
-                       ▼
-        ┌──────────────────────────────┐     ┌─────────────────────┐
-        │  Stage 1: SCRAPE             │────▶│ JobSpy → Indeed /   │
-        │  (gosha/pipeline.py)         │     │ LinkedIn / Glassdoor │
-        └──────────────┬───────────────┘     └─────────────────────┘
-                       │   upsert new jobs            via SOCKS5
-                       ▼                              SSH tunnels
-        ┌──────────────────────────────┐
-        │  Stage 2: MATCH              │
-        │  hard filters → semantic →   │
-        │  feedback adjustment         │
-        └──────────────┬───────────────┘
-                       │   enqueue UserJob rows
-                       ▼
-        ┌──────────────────────────────┐
-        │  Stage 3: DELIVER            │────▶ DM rich embeds to users
-        │  dedup → send → mark         │
-        └──────────────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────┐
-        │  SQLite (WAL mode)           │◀───  FastAPI admin dashboard
-        │  jobs.db                     │      (localhost:8080)
-        └──────────────────────────────┘
+           â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+           â”‚                Discord users via DMs                 â”‚
+           â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–²â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                        â”‚ /subscribe, /quickstart  â”‚ job embed + buttons
+                        â–¼                          â”‚
+        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”           â”‚
+        â”‚  Discord bot (discord.py)    â”‚â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                       â”‚
+          APScheduler  â”‚ every N minutes
+                       â–¼
+        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+        â”‚  Stage 1: SCRAPE             â”‚â”€â”€â”€â”€â–¶â”‚ JobSpy â†’ Indeed /   â”‚
+        â”‚  (gosha/pipeline.py)         â”‚     â”‚ LinkedIn / Glassdoor â”‚
+        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                       â”‚   upsert new jobs            via SOCKS5
+                       â–¼                              SSH tunnels
+        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+        â”‚  Stage 2: MATCH              â”‚
+        â”‚  hard filters â†’ semantic â†’   â”‚
+        â”‚  feedback adjustment         â”‚
+        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                       â”‚   enqueue UserJob rows
+                       â–¼
+        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+        â”‚  Stage 3: DELIVER            â”‚â”€â”€â”€â”€â–¶ DM rich embeds to users
+        â”‚  dedup â†’ send â†’ mark         â”‚
+        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                       â”‚
+                       â–¼
+        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+        â”‚  SQLite (WAL mode)           â”‚â—€â”€â”€â”€  FastAPI admin dashboard
+        â”‚  jobs.db                     â”‚      (localhost:8080)
+        â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 Each scrape cycle:
 
-1. **Scrape** — Collect all active subscriptions, group by `(keyword, location, boards, max_age_days)`, fan out to JobSpy via randomly-selected SOCKS5 proxies. Deduplicate and upsert into the `jobs` table. Fires `job.discovered` / `job.updated` events.
-2. **Match** — For every active subscription, filter candidate jobs against:
+1. **Scrape** â€” Collect all active subscriptions, group by `(keyword, location, boards, max_age_days)`, fan out to JobSpy via randomly-selected SOCKS5 proxies. Deduplicate and upsert into the `jobs` table. Fires `job.discovered` / `job.updated` events.
+2. **Match** â€” For every active subscription, filter candidate jobs against:
    - Excluded keywords
    - Company blacklist
    - Salary minimum
@@ -99,11 +99,11 @@ Each scrape cycle:
    - Location (substring match against the subscription's locations; `remote_ok` toggle includes remote matches)
    
    Then score remaining jobs with semantic similarity (if enabled), boost/penalize based on the user's past feedback, and enqueue a `user_jobs` row for each match.
-3. **Deliver** — Read all pending `user_jobs`, cross-board dedup (same title+company from multiple sources → one DM), send a rich embed with buttons, mark as delivered.
+3. **Deliver** â€” Read all pending `user_jobs`, cross-board dedup (same title+company from multiple sources â†’ one DM), send a rich embed with buttons, mark as delivered.
 
 ---
 
-## User Guide — Discord Commands
+## User Guide â€” Discord Commands
 
 ### Quick start
 
@@ -117,13 +117,13 @@ Creates a single subscription searching 19 CS intern/junior job titles in your c
 
 | Command | Purpose |
 |---|---|
-| `/subscribe keyword:… location:… [experience] [max_age_days] [exclude] [salary_min]` | Create a custom search |
+| `/subscribe keyword:â€¦ location:â€¦ [experience] [max_age_days] [exclude] [salary_min]` | Create a custom search |
 | `/my_searches` | Show all your active & paused subscriptions |
-| `/edit id:… [keyword] [location] [max_age_days] [experience] [exclude] [blacklist] [salary_min]` | Modify fields of a subscription |
-| `/pause id:…` | Temporarily stop a subscription without deleting it |
-| `/resume id:…` | Re-enable a paused subscription |
-| `/unsubscribe id:…` | Delete a subscription |
-| `/show_keywords keyword:…` | Preview which titles a smart keyword expands to |
+| `/edit id:â€¦ [keyword] [location] [max_age_days] [experience] [exclude] [blacklist] [salary_min]` | Modify fields of a subscription |
+| `/pause id:â€¦` | Temporarily stop a subscription without deleting it |
+| `/resume id:â€¦` | Re-enable a paused subscription |
+| `/unsubscribe id:â€¦` | Delete a subscription |
+| `/show_keywords keyword:â€¦` | Preview which titles a smart keyword expands to |
 
 ### Job discovery
 
@@ -131,31 +131,31 @@ Creates a single subscription searching 19 CS intern/junior job titles in your c
 |---|---|
 | `/scrape_now` | Force an immediate scrape cycle (cooldown per tier) |
 | `/stats` | Your delivery + feedback counts and active subscriptions |
-| `/status` | Bot health — uptime, tunnel state, last scrape time *(admin only)* |
+| `/status` | Bot health â€” uptime, tunnel state, last scrape time *(admin only)* |
 
 ### Application tracking
 
 | Command | Purpose |
 |---|---|
-| `/apply job_id:…` | Mark a job as applied |
-| `/update_application job_id:… status:…` | Move through pipeline: applied → phone_screen → interview → offer → rejected / withdrawn |
+| `/apply job_id:â€¦` | Mark a job as applied |
+| `/update_application job_id:â€¦ status:â€¦` | Move through pipeline: applied â†’ phone_screen â†’ interview â†’ offer â†’ rejected / withdrawn |
 | `/applications` | List your tracked applications grouped by status |
 
 ### AI cover letters
 
 | Command | Purpose |
 |---|---|
-| `/upload_cv` | Attach a PDF/DOCX/TXT/MD CV (≤5 MB) |
-| `/cover_letter job_id:…` | Generate a tailored cover letter (cached 30 days) |
+| `/upload_cv` | Attach a PDF/DOCX/TXT/MD CV (â‰¤5 MB) |
+| `/cover_letter job_id:â€¦` | Generate a tailored cover letter (cached 30 days) |
 | `/my_cv` | Preview stored CV + remaining monthly cover-letter quota |
 | `/delete_cv` | Remove your stored CV |
 
 ### Interactive buttons on every job DM
 
-- **Apply** — link to the posting
-- **Cover Letter** — generate or fetch cached AI cover letter
-- **Interested** 👍 — trains your preference profile upward
-- **Not Relevant** 👎 — trains it downward (after 3+ ratings the bot starts applying the profile)
+- **Apply** â€” link to the posting
+- **Cover Letter** â€” generate or fetch cached AI cover letter
+- **Interested** ðŸ‘ â€” trains your preference profile upward
+- **Not Relevant** ðŸ‘Ž â€” trains it downward (after 3+ ratings the bot starts applying the profile)
 
 ---
 
@@ -167,14 +167,14 @@ Some keywords automatically fan out into many specific search terms:
 
 | Keyword | Expands to |
 |---|---|
-| `computer science internship` | 19 intern/junior titles — software engineer intern, data analyst intern, devops intern, QA intern, frontend/backend intern, etc. |
+| `computer science internship` | 19 intern/junior titles â€” software engineer intern, data analyst intern, devops intern, QA intern, frontend/backend intern, etc. |
 | `computer science` | 18 general tech titles (all levels) |
 | `cs entry level` | 11 junior / graduate / trainee titles |
-| `software engineering` | 9 developer roles (frontend, backend, full stack, mobile, platform…) |
+| `software engineering` | 9 developer roles (frontend, backend, full stack, mobile, platformâ€¦) |
 | `data science` | 8 data / ML / AI roles |
 | `tech internship` | 9 tech + product + UX intern roles |
 
-Anything not in the list is searched verbatim. Use `/show_keywords keyword:…` to inspect the expansion.
+Anything not in the list is searched verbatim. Use `/show_keywords keyword:â€¦` to inspect the expansion.
 
 ### Location aliases
 
@@ -191,7 +191,7 @@ Aliases live in `gosha/filters.py` (`LOCATION_ALIASES`). Each alias has a `searc
 
 ## Free vs Pro vs Unlimited
 
-Limits live in `TIER_LIMITS` in `gosha/models.py` — edit them there to tune. Defaults:
+Limits live in `TIER_LIMITS` in `gosha/models.py` â€” edit them there to tune. Defaults:
 
 | Limit | Free | Pro | Unlimited |
 |---|---|---|---|
@@ -206,7 +206,7 @@ Limits live in `TIER_LIMITS` in `gosha/models.py` — edit them there to tune. D
 | Email delivery | No | Yes | Yes |
 | Webhook delivery | No | No | Yes |
 
-Upgrading a user is a direct DB write on the `users.tier` column — no payment flow is built in.
+Upgrading a user is a direct DB write on the `users.tier` column â€” no payment flow is built in.
 
 ---
 
@@ -220,7 +220,7 @@ cd autojobGOSHA
 
 # Prepare env file
 cp gosha/env.example .env
-# Edit .env — at minimum set DISCORD_TOKEN
+# Edit .env â€” at minimum set DISCORD_TOKEN
 nano .env
 
 # (optional) drop SSH keys in ./keys for proxy tunnels
@@ -239,11 +239,11 @@ On first run the bot will:
 
 1. Create `data/jobs.db` (SQLite in WAL mode).
 2. Run idempotent migrations to add any missing columns.
-3. Spawn SSH tunnels to each configured VPS on ports `1080`, `1081`, `1082`…
+3. Spawn SSH tunnels to each configured VPS on ports `1080`, `1081`, `1082`â€¦
 4. Connect to Discord and sync slash commands globally.
 5. Schedule the scrape cycle (`SCRAPE_INTERVAL_MINUTES`, default 60).
 
-The admin dashboard is bound to `127.0.0.1:8080` — forward it through SSH to your laptop:
+The admin dashboard is bound to `127.0.0.1:8080` â€” forward it through SSH to your laptop:
 
 ```bash
 ssh -L 8080:127.0.0.1:8080 user@your-server
@@ -256,20 +256,20 @@ Scopes: `bot`, `applications.commands`. Minimum permissions: `Send Messages`, `E
 
 ---
 
-## Deploying the Web Platform (jobs.bogdantruta.com)
+## Deploying the Web Platform (gosha.bogdantruta.com)
 
 The repo now ships a full public web platform: React SPA + FastAPI API +
 Postgres + Caddy (auto-HTTPS), alongside the original Discord bot.
 
 **One-time setup on the VPS:**
 
-1. **DNS** — add an `A` record: `jobs.bogdantruta.com` → VPS IP.
-2. **Discord application** (same app as the bot, Developer Portal → OAuth2):
+1. **DNS** â€” add an `A` record: `gosha.bogdantruta.com` â†’ VPS IP.
+2. **Discord application** (same app as the bot, Developer Portal â†’ OAuth2):
    - copy the **Client ID** and **Client Secret** into `.env`
-   - add redirect URI: `https://jobs.bogdantruta.com/api/v1/auth/discord/callback`
-3. **Env** — `cp .env.example .env` and fill in at minimum: `DISCORD_TOKEN`,
+   - add redirect URI: `https://gosha.bogdantruta.com/api/v1/auth/discord/callback`
+3. **Env** â€” `cp .env.example .env` and fill in at minimum: `DISCORD_TOKEN`,
    `SESSION_SECRET`, `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`,
-   `PUBLIC_BASE_URL=https://jobs.bogdantruta.com`, `POSTGRES_PASSWORD`,
+   `PUBLIC_BASE_URL=https://gosha.bogdantruta.com`, `POSTGRES_PASSWORD`,
    `DISCORD_GUILD_ID` + `DISCORD_INVITE_URL` (join-server funnel), and a
    cover-letter LLM key (`GEMINI_API_KEY` or `OPENROUTER_API_KEY`).
 4. **Launch:** `docker compose -f docker-compose.prod.yml up -d --build`
@@ -309,7 +309,7 @@ All settings are read from environment variables (loaded via `gosha/config.py`).
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `sqlite+aiosqlite:///data/jobs.db` | SQLAlchemy async URL. PostgreSQL works too (`postgresql+asyncpg://…`) |
+| `DATABASE_URL` | `sqlite+aiosqlite:///data/jobs.db` | SQLAlchemy async URL. PostgreSQL works too (`postgresql+asyncpg://â€¦`) |
 
 ### Scraping
 
@@ -324,7 +324,7 @@ All settings are read from environment variables (loaded via `gosha/config.py`).
 |---|---|---|
 | `USE_SEMANTIC_MATCHING` | `false` | Toggle embedding-based scoring. When off, falls back to regex title matching |
 | `SEMANTIC_MODEL` | `all-mpnet-base-v2` | Any `sentence-transformers` model name |
-| `SEMANTIC_THRESHOLD` | `0.40` | Cosine similarity cutoff (0–1). Lower → more matches, less relevant |
+| `SEMANTIC_THRESHOLD` | `0.40` | Cosine similarity cutoff (0â€“1). Lower â†’ more matches, less relevant |
 
 ### Admin
 
@@ -340,13 +340,13 @@ All settings are read from environment variables (loaded via `gosha/config.py`).
 
 ### SSH tunnels (SOCKS5 proxy rotation)
 
-Up to 9 VPSs, numbered `1`–`9`:
+Up to 9 VPSs, numbered `1`â€“`9`:
 
 | Variable | Purpose |
 |---|---|
 | `VPS_1_HOST` | Hostname or IP |
 | `VPS_1_USER` | SSH username |
-| `VPS_1_PORT` | SSH port (1024–65535) |
+| `VPS_1_PORT` | SSH port (1024â€“65535) |
 | `VPS_1_KEY` | Path to private key inside the container |
 | `SSH_KEY_PATH` | Fallback key path if `VPS_N_KEY` is unset. Default `/home/app/.ssh/id_rsa` |
 
@@ -363,22 +363,22 @@ If no VPSs are configured, the bot runs everything directly. That's fine for low
 `main.py` is a shim that delegates to `gosha.main.main()`. `gosha/main.py` performs the startup sequence:
 
 1. Load settings (`gosha.config.load_settings`).
-2. Initialize the DB (`gosha.database.init_db` → runs `gosha.migrate.run_migrations`, then `Base.metadata.create_all`).
+2. Initialize the DB (`gosha.database.init_db` â†’ runs `gosha.migrate.run_migrations`, then `Base.metadata.create_all`).
 3. Create an `SSHTunnelManager` and start all configured tunnels.
 4. Instantiate the `JobBot` (subclass of `discord.ext.commands.Bot`).
 5. Create an `AsyncIOScheduler` and register two jobs:
-   - `scrape_cycle` — every `scrape_interval_minutes`, runs the full 3-stage pipeline.
-   - `tunnel_health_check` — every 5 minutes, restarts dead SSH tunnels.
+   - `scrape_cycle` â€” every `scrape_interval_minutes`, runs the full 3-stage pipeline.
+   - `tunnel_health_check` â€” every 5 minutes, restarts dead SSH tunnels.
 6. Start the Discord client. The scheduler starts in `on_ready`.
-7. Install SIGINT/SIGTERM handlers for graceful shutdown (close scheduler → stop tunnels → close bot).
+7. Install SIGINT/SIGTERM handlers for graceful shutdown (close scheduler â†’ stop tunnels â†’ close bot).
 
 ### The three pipeline stages
 
 `gosha/pipeline.py`:
 
-- **`run_scrape_stage()`** — groups subscriptions by scrape key to avoid duplicate work, calls `gosha.scraper.scrape_jobs_raw()` per group, deduplicates, and bulk-upserts into `jobs`.
-- **`run_match_stage()`** — loads every active subscription, pre-filters with `job_matches_subscription()` (hard filters), then either semantic-scores via `SemanticMatcher` or regex-matches titles. Feedback profiles from `gosha/feedback.py` adjust the score per user. New matches become `user_jobs` rows with `delivered_at = NULL`.
-- **`_deliver_new()`** — reads pending `user_jobs`, cross-board dedups by `(title, company, user_id)`, builds the embed (`gosha.delivery.build_job_embed`), sends it, stamps `delivered_at`.
+- **`run_scrape_stage()`** â€” groups subscriptions by scrape key to avoid duplicate work, calls `gosha.scraper.scrape_jobs_raw()` per group, deduplicates, and bulk-upserts into `jobs`.
+- **`run_match_stage()`** â€” loads every active subscription, pre-filters with `job_matches_subscription()` (hard filters), then either semantic-scores via `SemanticMatcher` or regex-matches titles. Feedback profiles from `gosha/feedback.py` adjust the score per user. New matches become `user_jobs` rows with `delivered_at = NULL`.
+- **`_deliver_new()`** â€” reads pending `user_jobs`, cross-board dedups by `(title, company, user_id)`, builds the embed (`gosha.delivery.build_job_embed`), sends it, stamps `delivered_at`.
 
 ### Scraper
 
@@ -390,18 +390,18 @@ Keyword expansion and location aliasing both live in `gosha/filters.py` and are 
 
 `gosha/bot.py` defines a single cog (`GoshaCog`) with ~20 slash commands. Notable pieces:
 
-- **Autocomplete** — `/subscribe`'s keyword and location fields offer suggestions from the smart-keyword list and `LOCATION_ALIASES`.
-- **Persistent buttons** — `gosha/views.py` defines `JobFeedbackView` with custom IDs encoded as `feedback:{user_id}:{job_id}:{action}`, so buttons keep working across bot restarts.
-- **Tier enforcement** — each command that creates resources checks `user.limits` (derived from the tier).
-- **Cooldowns** — `/scrape_now` enforces a per-user cooldown from the tier config.
+- **Autocomplete** â€” `/subscribe`'s keyword and location fields offer suggestions from the smart-keyword list and `LOCATION_ALIASES`.
+- **Persistent buttons** â€” `gosha/views.py` defines `JobFeedbackView` with custom IDs encoded as `feedback:{user_id}:{job_id}:{action}`, so buttons keep working across bot restarts.
+- **Tier enforcement** â€” each command that creates resources checks `user.limits` (derived from the tier).
+- **Cooldowns** â€” `/scrape_now` enforces a per-user cooldown from the tier config.
 
 ### Feedback and preference profiles
 
-`gosha/feedback.py` builds a `UserPreferenceProfile` from the user's `user_jobs.feedback` history (`interested` / `not_relevant`). The profile extracts recurring terms and companies from liked and disliked postings, then applies a ±0.3 adjustment to future semantic scores where those terms show up. After 3+ pieces of feedback the profile is considered reliable and starts contributing.
+`gosha/feedback.py` builds a `UserPreferenceProfile` from the user's `user_jobs.feedback` history (`interested` / `not_relevant`). The profile extracts recurring terms and companies from liked and disliked postings, then applies a Â±0.3 adjustment to future semantic scores where those terms show up. After 3+ pieces of feedback the profile is considered reliable and starts contributing.
 
 ### Events
 
-`gosha/events.py` is a lightweight audit trail. Every significant action (`job.discovered`, `job.matched`, `job.delivered`, `user.feedback`, `subscription.created`, …) is inserted into the `events` table with a timestamp, optional actor/job/subscription IDs, and a JSON payload. There is no external queue — the `events` table is the queue.
+`gosha/events.py` is a lightweight audit trail. Every significant action (`job.discovered`, `job.matched`, `job.delivered`, `user.feedback`, `subscription.created`, â€¦) is inserted into the `events` table with a timestamp, optional actor/job/subscription IDs, and a JSON payload. There is no external queue â€” the `events` table is the queue.
 
 ---
 
@@ -415,12 +415,12 @@ All models live in `gosha/models.py`. SQLite in WAL mode, but the schema works o
 | `subscriptions` | A user's search: JSON-list columns for `keywords`, `locations`, `excluded_keywords`, `company_blacklist`, `experience_levels`, `boards`; scalars for `remote_ok`, `salary_min`, `max_age_days`, `is_active` |
 | `jobs` | Canonical job record keyed by URL. Tracks `first_seen_at` / `last_seen_at` / `is_active` for freshness |
 | `user_jobs` | The match + delivery queue. `(user_id, job_id)` unique. Holds `relevance_score`, `delivered_at`, `feedback`, `feedback_at` |
-| `applications` | Hiring-pipeline tracker: `status` ∈ {applied, phone_screen, interview, offer, rejected, withdrawn} |
+| `applications` | Hiring-pipeline tracker: `status` âˆˆ {applied, phone_screen, interview, offer, rejected, withdrawn} |
 | `cover_letters` | AI-generated letters cached for 30 days per `(user_id, job_id)` |
 | `events` | Immutable audit trail of every pipeline action |
 | `seen_jobs` | Legacy table kept for backward-compat migration; no longer written to |
 
-JSON list columns use a mixin (`_JSONListMixin`) that serializes Python lists to JSON text for SQLite portability. Accessors on the model (`sub.keywords`, `sub.locations`, …) transparently marshal between text and list.
+JSON list columns use a mixin (`_JSONListMixin`) that serializes Python lists to JSON text for SQLite portability. Accessors on the model (`sub.keywords`, `sub.locations`, â€¦) transparently marshal between text and list.
 
 ---
 
@@ -428,12 +428,12 @@ JSON list columns use a mixin (`_JSONListMixin`) that serializes Python lists to
 
 `gosha/web/app.py` is a tiny FastAPI app exposing a single admin namespace. Key characteristics:
 
-- **Binds to `127.0.0.1:8080` only** (`docker-compose.yml` uses `network_mode: host`). There is **no authentication** — the network binding is the security.
+- **Binds to `127.0.0.1:8080` only** (`docker-compose.yml` uses `network_mode: host`). There is **no authentication** â€” the network binding is the security.
 - **Access via SSH tunnel:** `ssh -L 8080:127.0.0.1:8080 user@server` and browse `http://localhost:8080/admin/`.
 - **Routes** (`gosha/web/admin.py`):
-  - `GET /admin/` → Jinja2 dashboard with user / subscription / job / delivery stats.
-  - `GET /admin/api/stats` → JSON version of the same stats (useful for scripting).
-- **Security headers middleware** — adds `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
+  - `GET /admin/` â†’ Jinja2 dashboard with user / subscription / job / delivery stats.
+  - `GET /admin/api/stats` â†’ JSON version of the same stats (useful for scripting).
+- **Security headers middleware** â€” adds `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
 
 The admin container shares the same image as `job-bot`; its command override runs uvicorn against `gosha.web.app:app` instead of `main.py`.
 
@@ -463,12 +463,12 @@ If `sentence-transformers` is not installed or `USE_SEMANTIC_MATCHING` is `false
 
 **CV storage:** Plain text in `data/cvs/{user_id}.txt`. Extraction:
 
-- **PDF** — `pymupdf` (fitz) with light cleaning (removes LaTeX residue, glyph tokens, control characters).
-- **DOCX** — minimal zip/XML parsing; no `python-docx` dependency.
-- **TXT/MD** — read directly.
+- **PDF** â€” `pymupdf` (fitz) with light cleaning (removes LaTeX residue, glyph tokens, control characters).
+- **DOCX** â€” minimal zip/XML parsing; no `python-docx` dependency.
+- **TXT/MD** â€” read directly.
 - Max file size is enforced at the upload path.
 
-**Gemini call:** The generator builds a prompt containing the CV + job details (title, company, location, salary, first 3000 chars of description) and targets a 250–350 word output. It retries through a fallback list of Gemini model IDs so a single model being unavailable doesn't break the feature.
+**Gemini call:** The generator builds a prompt containing the CV + job details (title, company, location, salary, first 3000 chars of description) and targets a 250â€“350 word output. It retries through a fallback list of Gemini model IDs so a single model being unavailable doesn't break the feature.
 
 **Caching:** Every successful generation is stored in the `cover_letters` table. Subsequent requests for the same `(user_id, job_id)` return the cached version for 30 days. The monthly quota counts unique generations within the current calendar month; a cached re-request does not consume quota.
 
@@ -492,11 +492,11 @@ If `sentence-transformers` is not installed or `USE_SEMANTIC_MATCHING` is `false
 
 `gosha/migrate.py` is a hand-rolled, idempotent migration runner that executes before `Base.metadata.create_all()` on every startup. It handles:
 
-1. **Column adds** — `users.tier`, `subscriptions.remote_ok`, etc. Skipped if already present.
-2. **Old → new subscription schema** — older versions stored a single `keyword` + `location` string per subscription. If those columns exist, the migrator copies them into the new JSON-list columns and makes the old ones nullable (SQLite requires a table rebuild for column-nullability changes, which the migrator does in a single transaction).
-3. **Legacy `seen_jobs` → `user_jobs`** — creates stub `jobs` rows for any URL still referenced by `seen_jobs`, then maps old delivery history into the new `user_jobs` table so users don't get the same posting twice after upgrade.
+1. **Column adds** â€” `users.tier`, `subscriptions.remote_ok`, etc. Skipped if already present.
+2. **Old â†’ new subscription schema** â€” older versions stored a single `keyword` + `location` string per subscription. If those columns exist, the migrator copies them into the new JSON-list columns and makes the old ones nullable (SQLite requires a table rebuild for column-nullability changes, which the migrator does in a single transaction).
+3. **Legacy `seen_jobs` â†’ `user_jobs`** â€” creates stub `jobs` rows for any URL still referenced by `seen_jobs`, then maps old delivery history into the new `user_jobs` table so users don't get the same posting twice after upgrade.
 
-All of this runs inside one transaction and is safe to re-run. There's no Alembic, intentionally — the migration surface is small and a single Python file is easier to reason about for a self-hoster.
+All of this runs inside one transaction and is safe to re-run. There's no Alembic, intentionally â€” the migration surface is small and a single Python file is easier to reason about for a self-hoster.
 
 ---
 
@@ -511,16 +511,16 @@ pytest
 
 Test files in `tests/` cover:
 
-- `test_models.py` — model creation, uniqueness, relationships
-- `test_filters.py` — keyword expansion, location normalization, filter functions
-- `test_pipeline.py` — scrape/match/deliver stage logic
-- `test_queue.py` — `enqueue_delivery`, batch operations
-- `test_matching.py` — semantic matcher edge cases
-- `test_feedback.py` — profile building and score adjustment
-- `test_delivery.py` — embed building and DM dispatch
-- `test_events.py` — event emit/query
-- `test_migrate.py` — old → new schema migrations
-- `test_web.py` — admin dashboard routes and stats API
+- `test_models.py` â€” model creation, uniqueness, relationships
+- `test_filters.py` â€” keyword expansion, location normalization, filter functions
+- `test_pipeline.py` â€” scrape/match/deliver stage logic
+- `test_queue.py` â€” `enqueue_delivery`, batch operations
+- `test_matching.py` â€” semantic matcher edge cases
+- `test_feedback.py` â€” profile building and score adjustment
+- `test_delivery.py` â€” embed building and DM dispatch
+- `test_events.py` â€” event emit/query
+- `test_migrate.py` â€” old â†’ new schema migrations
+- `test_web.py` â€” admin dashboard routes and stats API
 
 ### Dependencies at a glance
 
@@ -539,8 +539,8 @@ From `requirements.txt`:
 
 ### Coding style
 
-- `from __future__ import annotations` everywhere — PEP 604 types, lazy evaluation.
-- Pure functions in `gosha/filters.py`, `gosha/matching.py` — no DB or IO.
+- `from __future__ import annotations` everywhere â€” PEP 604 types, lazy evaluation.
+- Pure functions in `gosha/filters.py`, `gosha/matching.py` â€” no DB or IO.
 - IO-heavy code in `gosha/pipeline.py`, `gosha/scraper.py`, `gosha/bot.py`.
 - Tests target the pure modules most heavily.
 
@@ -550,7 +550,7 @@ From `requirements.txt`:
 
 ### "I'm not receiving any DMs"
 
-Check **Server Settings → Privacy Settings → Allow direct messages from server members**. Discord silently drops DMs from bots in servers where this is off.
+Check **Server Settings â†’ Privacy Settings â†’ Allow direct messages from server members**. Discord silently drops DMs from bots in servers where this is off.
 
 ### `/quickstart` says I already have subscriptions
 
@@ -558,26 +558,26 @@ Quickstart refuses to create a subscription if you already have one. Use `/my_se
 
 ### Bot receives jobs but they're irrelevant
 
-- Use `/edit id:… exclude: sales, marketing, nursing` to drop noisy categories.
+- Use `/edit id:â€¦ exclude: sales, marketing, nursing` to drop noisy categories.
 - Lower the noise with a tighter keyword (e.g. `software engineer intern` instead of `internship`).
-- Click **Not Relevant** on a few jobs — after 3+ ratings your personal profile kicks in.
+- Click **Not Relevant** on a few jobs â€” after 3+ ratings your personal profile kicks in.
 - Tune `SEMANTIC_THRESHOLD` up (e.g. `0.50`) if semantic matching is too loose for you.
 
 ### Scrape logs show `Glassdoor: Error encountered in API response`
 
-Glassdoor's anonymous API is flaky and/or regionally blocked. This is a known upstream issue in JobSpy. LinkedIn and Indeed will still return results — Glassdoor acts as a bonus source when it's up.
+Glassdoor's anonymous API is flaky and/or regionally blocked. This is a known upstream issue in JobSpy. LinkedIn and Indeed will still return results â€” Glassdoor acts as a bonus source when it's up.
 
 ### SSH tunnel won't start
 
-Check that the key exists at the path configured in `VPS_N_KEY` (inside the container — the `./keys:/home/app/.ssh:ro` bind mount makes them available). `chmod 600` the key on the host. Watch `docker compose logs job-bot` during startup; each tunnel prints its result.
+Check that the key exists at the path configured in `VPS_N_KEY` (inside the container â€” the `./keys:/home/app/.ssh:ro` bind mount makes them available). `chmod 600` the key on the host. Watch `docker compose logs job-bot` during startup; each tunnel prints its result.
 
 ### Migrations fail after a git pull
 
-Back up `data/jobs.db`, then let the migrator run again on restart. If it still fails, open an issue with the full traceback — the migrator is intentionally simple and usually a clear SQL error points to the cause.
+Back up `data/jobs.db`, then let the migrator run again on restart. If it still fails, open an issue with the full traceback â€” the migrator is intentionally simple and usually a clear SQL error points to the cause.
 
 ### Admin dashboard returns 404
 
-The admin app is mounted under `/admin/` — visit `http://localhost:8080/admin/`, not `/`. If you forgot the trailing slash, FastAPI may return 404 depending on redirects.
+The admin app is mounted under `/admin/` â€” visit `http://localhost:8080/admin/`, not `/`. If you forgot the trailing slash, FastAPI may return 404 depending on redirects.
 
 ---
 
@@ -585,44 +585,44 @@ The admin app is mounted under `/admin/` — visit `http://localhost:8080/admin/
 
 ```
 autojobGOSHA/
-├── main.py                    # Entry shim → gosha.main.main()
-├── Dockerfile                 # python:3.11-slim + openssh-client + app user
-├── docker-compose.yml         # job-bot + admin, both network_mode: host
-├── requirements.txt           # Runtime deps
-├── requirements-dev.txt       # Test deps
-├── pytest.ini                 # Test config
-│
-├── gosha/
-│   ├── main.py                # Startup sequence, scheduler wiring
-│   ├── config.py              # Settings dataclass, env parsing, VPS config
-│   ├── env.example            # Template .env
-│   │
-│   ├── bot.py                 # Discord bot + all slash commands
-│   ├── views.py               # Persistent button views (feedback, cover letter)
-│   │
-│   ├── models.py              # SQLAlchemy ORM models + tier limits
-│   ├── database.py            # Async engine, session factory, init_db
-│   ├── migrate.py             # Hand-rolled idempotent migrations
-│   │
-│   ├── pipeline.py            # 3-stage scrape/match/deliver pipeline
-│   ├── scraper.py             # JobSpy wrapper + proxy rotation
-│   ├── filters.py             # Keyword expansion, location aliases, regex filters
-│   ├── matching.py            # SemanticMatcher (sentence-transformers)
-│   ├── feedback.py            # UserPreferenceProfile from feedback history
-│   ├── delivery.py            # DM embed builder + send logic
-│   ├── queue.py               # user_jobs helpers (enqueue, mark delivered)
-│   │
-│   ├── events.py              # Event store (audit trail)
-│   ├── cover_letter.py        # CV extraction + Gemini cover letter gen
-│   ├── ssh_tunnels.py         # SSHTunnelManager + health check
-│   │
-│   └── web/
-│       ├── app.py             # FastAPI app (localhost only)
-│       └── admin.py           # /admin/ routes, stats API
-│
-├── tests/                     # Pytest suite
-├── data/                      # SQLite DB, CV uploads (created at runtime)
-└── keys/                      # SSH private keys for tunnels (mount)
+â”œâ”€â”€ main.py                    # Entry shim â†’ gosha.main.main()
+â”œâ”€â”€ Dockerfile                 # python:3.11-slim + openssh-client + app user
+â”œâ”€â”€ docker-compose.yml         # job-bot + admin, both network_mode: host
+â”œâ”€â”€ requirements.txt           # Runtime deps
+â”œâ”€â”€ requirements-dev.txt       # Test deps
+â”œâ”€â”€ pytest.ini                 # Test config
+â”‚
+â”œâ”€â”€ gosha/
+â”‚   â”œâ”€â”€ main.py                # Startup sequence, scheduler wiring
+â”‚   â”œâ”€â”€ config.py              # Settings dataclass, env parsing, VPS config
+â”‚   â”œâ”€â”€ env.example            # Template .env
+â”‚   â”‚
+â”‚   â”œâ”€â”€ bot.py                 # Discord bot + all slash commands
+â”‚   â”œâ”€â”€ views.py               # Persistent button views (feedback, cover letter)
+â”‚   â”‚
+â”‚   â”œâ”€â”€ models.py              # SQLAlchemy ORM models + tier limits
+â”‚   â”œâ”€â”€ database.py            # Async engine, session factory, init_db
+â”‚   â”œâ”€â”€ migrate.py             # Hand-rolled idempotent migrations
+â”‚   â”‚
+â”‚   â”œâ”€â”€ pipeline.py            # 3-stage scrape/match/deliver pipeline
+â”‚   â”œâ”€â”€ scraper.py             # JobSpy wrapper + proxy rotation
+â”‚   â”œâ”€â”€ filters.py             # Keyword expansion, location aliases, regex filters
+â”‚   â”œâ”€â”€ matching.py            # SemanticMatcher (sentence-transformers)
+â”‚   â”œâ”€â”€ feedback.py            # UserPreferenceProfile from feedback history
+â”‚   â”œâ”€â”€ delivery.py            # DM embed builder + send logic
+â”‚   â”œâ”€â”€ queue.py               # user_jobs helpers (enqueue, mark delivered)
+â”‚   â”‚
+â”‚   â”œâ”€â”€ events.py              # Event store (audit trail)
+â”‚   â”œâ”€â”€ cover_letter.py        # CV extraction + Gemini cover letter gen
+â”‚   â”œâ”€â”€ ssh_tunnels.py         # SSHTunnelManager + health check
+â”‚   â”‚
+â”‚   â””â”€â”€ web/
+â”‚       â”œâ”€â”€ app.py             # FastAPI app (localhost only)
+â”‚       â””â”€â”€ admin.py           # /admin/ routes, stats API
+â”‚
+â”œâ”€â”€ tests/                     # Pytest suite
+â”œâ”€â”€ data/                      # SQLite DB, CV uploads (created at runtime)
+â””â”€â”€ keys/                      # SSH private keys for tunnels (mount)
 ```
 
 ---

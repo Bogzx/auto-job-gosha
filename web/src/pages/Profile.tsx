@@ -83,9 +83,14 @@ export default function Profile() {
 
       <p className="rule-dotted mt-8 pt-4 text-center font-mono text-[11px] leading-relaxed text-ink-faint">
         Your data: Discord id, CV text, saved searches, and job interactions.
-        Delete your CV any time from the CV page. Questions →{' '}
-        <a className="underline" href="mailto:bogdansitudor69@gmail.com">
-          contact
+        Delete your CV any time from the CV page. Made by{' '}
+        <a
+          className="underline"
+          href="https://bogdantruta.com"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Bogdan Truta
         </a>
       </p>
     </div>

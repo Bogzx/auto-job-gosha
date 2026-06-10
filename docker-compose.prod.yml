@@ -1,4 +1,4 @@
-# Production stack for jobs.bogdantruta.com
+# Production stack for gosha.bogdantruta.com
 #
 #   cp .env.example .env   # fill in secrets
 #   docker compose -f docker-compose.prod.yml up -d --build
@@ -39,6 +39,7 @@ services:
     volumes:
       - ./data:/app/data          # CV files + legacy SQLite for migration
       - ./keys:/home/app/.ssh:ro  # SSH keys for proxy tunnels (optional)
+      - hf_cache:/home/app/.cache # sentence-transformers model cache
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +56,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://gosha:${POSTGRES_PASSWORD}@postgres:5432/gosha
     volumes:
       - ./data:/app/data          # shared CV storage with the bot
+      - hf_cache:/home/app/.cache # model cache (CV embedding on upload)
     command:
       [
         "uvicorn", "gosha.api.app:create_app", "--factory",
@@ -65,7 +67,12 @@ services:
       postgres:
         condition: service_healthy
 
-  # HTTPS edge: serves the SPA build + proxies /api -> api
+  # Web edge: serves the SPA build + proxies /api -> api.
+  # Standalone server: defaults bind 80/443 and terminate TLS.
+  # Behind an existing host reverse proxy: set in .env
+  #   CADDY_SITE=:80
+  #   CADDY_HTTP_BIND=127.0.0.1:8090
+  # and point the host proxy at http://127.0.0.1:8090
   caddy:
     build:
       context: .
@@ -75,10 +82,10 @@ services:
     container_name: gosha-caddy
     restart: unless-stopped
     environment:
-      CADDY_SITE: ${CADDY_SITE:-jobs.bogdantruta.com}
+      CADDY_SITE: ${CADDY_SITE:-gosha.bogdantruta.com}
     ports:
-      - "80:80"
-      - "443:443"
+      - "${CADDY_HTTP_BIND:-80}:80"
+      - "${CADDY_HTTPS_BIND:-443}:443"
     volumes:
       - caddy_data:/data
       - caddy_config:/config
@@ -89,3 +96,4 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  hf_cache:

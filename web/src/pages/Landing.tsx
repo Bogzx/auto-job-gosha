@@ -151,7 +151,17 @@ export default function Landing() {
           </div>
         </div>
         <p className="rule-dotted mt-10 pt-6 text-center font-mono text-xs text-ink-faint">
-          GOSHA.jobs — built by students, for students · jobs.bogdantruta.com
+          GOSHA.jobs — built by students, for students · gosha.bogdantruta.com
+          <br />
+          made by{' '}
+          <a
+            href="https://bogdantruta.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-moss underline underline-offset-2 hover:text-go"
+          >
+            Bogdan Truta
+          </a>
         </p>
       </section>
     </div>
