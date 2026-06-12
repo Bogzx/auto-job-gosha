@@ -9,7 +9,10 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-git pull --ff-only
+# reset, not pull: a deploy clone tracks origin/main exactly, even across
+# history rewrites or force pushes
+git fetch origin main
+git reset --hard origin/main
 docker compose -f docker-compose.prod.yml up -d --build
 docker image prune -f
 
