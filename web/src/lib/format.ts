@@ -15,22 +15,84 @@ export function timeAgo(iso: string | null): string {
   return months === 1 ? '1mo ago' : `${months}mo ago`
 }
 
+const PERIOD_SUFFIX: Record<string, string> = {
+  yearly: '/yr',
+  year: '/yr',
+  annual: '/yr',
+  monthly: '/mo',
+  month: '/mo',
+  weekly: '/wk',
+  daily: '/day',
+  hourly: '/hr',
+  hour: '/hr',
+}
+
 export function formatSalary(
   min: number | null,
   max: number | null,
   currency: string | null,
+  period?: string | null,
 ): string | null {
   if (min == null && max == null) return null
   const cur = currency ?? ''
+  // The period matters: RemoteOK quotes annual USD and eJobs monthly RON,
+  // so "90k USD" next to "8k RON" without it is actively misleading.
+  const suffix = period ? (PERIOD_SUFFIX[period.toLowerCase()] ?? '') : ''
   const fmt = (n: number) =>
     n >= 10000 ? `${Math.round(n / 1000)}k` : `${Math.round(n)}`
-  if (min != null && max != null && min !== max) return `${fmt(min)}–${fmt(max)} ${cur}`.trim()
-  return `${fmt((min ?? max)!)} ${cur}`.trim()
+  const amount =
+    min != null && max != null && min !== max
+      ? `${fmt(min)}–${fmt(max)}`
+      : fmt((min ?? max)!)
+  return `${amount} ${cur}${suffix}`.trim()
 }
 
-export function matchPercent(score: number | null): number | null {
-  if (score == null) return null
-  return Math.round(Math.min(1, Math.max(0, score)) * 100)
+/**
+ * The comparable figure: gross RON per month, normalised at ingest
+ * (gosha/salary.py). Shown alongside the quoted amount so a Romanian
+ * student can tell at a glance whether an annual-USD remote listing
+ * actually beats a local monthly-RON one.
+ */
+export function formatMonthlyRon(
+  min: number | null | undefined,
+  max: number | null | undefined,
+): string | null {
+  if (min == null && max == null) return null
+  const fmt = (n: number) =>
+    n >= 10000 ? `${(n / 1000).toFixed(n >= 100000 ? 0 : 1)}k` : `${Math.round(n)}`
+  const amount =
+    min != null && max != null && Math.round(min) !== Math.round(max)
+      ? `${fmt(min)}–${fmt(max)}`
+      : fmt((min ?? max)!)
+  return `≈${amount} RON/mo`
+}
+
+/**
+ * The badge number.
+ *
+ * This used to render the raw cosine similarity as a percentage. Real
+ * values from a 768-dim sentence embedding land around 0.15–0.45, so the
+ * badge showed "23%" for a perfectly good match and never reached the
+ * ≥75% green or ≥50% amber thresholds it was styled against — nearly every
+ * job in the feed rendered grey, and the one number users were meant to
+ * trust said "bad match" about all of them.
+ *
+ * The API now returns `match_percentile`: the job's position within the
+ * whole ranked candidate set (gosha/recommend.py percentile_ranks). The
+ * ordering was always correct; this makes the number say the same thing
+ * the ordering does.
+ */
+export function matchPercent(percentile: number | null): number | null {
+  if (percentile == null) return null
+  return Math.round(Math.min(100, Math.max(0, percentile)))
+}
+
+/** Plain-language reading of a percentile, for tooltips and detail views. */
+export function matchLabel(percentile: number | null): string | null {
+  if (percentile == null) return null
+  if (percentile >= 75) return `Top ${Math.max(1, 100 - percentile)}% of your feed`
+  if (percentile >= 50) return 'Above average for your feed'
+  return `Ranks below ${100 - percentile}% of your feed`
 }
 
 export const SOURCE_LABELS: Record<string, string> = {

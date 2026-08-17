@@ -23,13 +23,14 @@ from gosha.filters import (
     matches_company_blacklist,
     matches_excluded_keywords,
     matches_experience_level,
-    matches_salary_minimum,
     normalize_location,
     title_is_relevant,
 )
 from gosha.matching import SemanticMatcher
 from gosha.models import Job, Subscription, User, UserJob
 from gosha.queue import enqueue_deliveries_batch
+from gosha.salary import meets_minimum, normalise_range
+from gosha.scrape_health import CycleReport, ScrapeHealth
 
 if TYPE_CHECKING:
     from gosha.bot import JobBot
@@ -55,6 +56,27 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
     now = datetime.now(timezone.utc)
 
     async with get_session() as session:
+        # One SELECT for the whole batch instead of one per scraped row.
+        # A broad keyword expands into ~19 searches x 30 results across 7
+        # sources, so the per-row lookup was hundreds of round trips per
+        # cycle against a Postgres in another container.
+        urls = [
+            str(u)
+            for u in (
+                df.get("job_url", pd.Series(dtype=object))
+                .fillna(
+                    df.get("job_url_direct", pd.Series(dtype=object))
+                )
+                .fillna(df.get("link", pd.Series(dtype=object)))
+                .tolist()
+            )
+            if u and str(u) != "nan"
+        ]
+        existing_by_url: dict[str, Job] = {}
+        if urls:
+            found = await session.execute(select(Job).where(Job.url.in_(urls)))
+            existing_by_url = {job.url: job for job in found.scalars().all()}
+
         for _, row in df.iterrows():
             url = str(
                 row.get("job_url")
@@ -78,10 +100,20 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
                 if "currency" in row and pd.notna(row.get("currency"))
                 else None
             )
+            # JobSpy calls it "interval"; our adapters emit the same key.
+            salary_period = (
+                str(row["interval"])
+                if "interval" in row and pd.notna(row.get("interval"))
+                else None
+            )
+            # Normalise once, here, so the filter and the sort can compare
+            # eJobs' monthly RON with RemoteOK's annual USD.
+            monthly_min, monthly_max = normalise_range(
+                salary_min, salary_max, salary_currency, salary_period,
+            )
             posted_at = _parse_datetime(row, "date_posted")
 
-            result = await session.execute(select(Job).where(Job.url == url))
-            existing = result.scalar_one_or_none()
+            existing = existing_by_url.get(url)
 
             if existing:
                 existing.last_seen_at = now
@@ -100,6 +132,12 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
                     existing.salary_max = salary_max
                 if salary_currency:
                     existing.salary_currency = salary_currency
+                if salary_period:
+                    existing.salary_period = salary_period
+                if monthly_min is not None:
+                    existing.salary_monthly_min_ron = monthly_min
+                if monthly_max is not None:
+                    existing.salary_monthly_max_ron = monthly_max
                 if posted_at is not None:
                     existing.posted_at = posted_at
                 jobs.append(existing)
@@ -113,6 +151,9 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
                     salary_min=salary_min,
                     salary_max=salary_max,
                     salary_currency=salary_currency,
+                    salary_period=salary_period,
+                    salary_monthly_min_ron=monthly_min,
+                    salary_monthly_max_ron=monthly_max,
                     source=source,
                     first_seen_at=now,
                     last_seen_at=now,
@@ -120,6 +161,10 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
                 )
                 session.add(job)
                 jobs.append(job)
+                # A batch can contain the same URL twice (two keywords hit
+                # the same posting); without this the second occurrence
+                # would insert a duplicate and trip the unique constraint.
+                existing_by_url[url] = job
 
         await session.commit()
 
@@ -138,12 +183,21 @@ async def upsert_jobs(df: pd.DataFrame) -> list[Job]:
 
 async def run_scrape_stage(
     tunnel_manager: SSHTunnelManager,
+    health: ScrapeHealth | None = None,
 ) -> list[Job]:
     """Stage 1: scrape all active subscriptions and upsert results.
 
-    Returns all jobs found (new + updated).
+    Returns all jobs found (new + updated). Per-source yields are folded
+    into `health` (default: the process-wide tracker) so a board that has
+    quietly stopped returning anything gets alerted on — see
+    gosha/scrape_health.py.
     """
+    from gosha.scrape_health import get_scrape_health
     from gosha.scraper import scrape_jobs_raw
+
+    health = health or get_scrape_health()
+    attempted: set[str] = set()
+    per_source: dict[str, int] = {}
 
     async with get_session() as session:
         result = await session.execute(
@@ -152,6 +206,7 @@ async def run_scrape_stage(
         all_subs = result.scalars().all()
 
     if not all_subs:
+        # Not a failure — nobody has asked for anything, so no alert.
         log.info("No active subscriptions — nothing to scrape.")
         return []
 
@@ -165,6 +220,7 @@ async def run_scrape_stage(
 
     all_jobs: list[Job] = []
     for (keyword, location, boards, max_age_days), keywords in scrape_combos.items():
+        attempted.update(boards)
         df = await scrape_jobs_raw(
             tunnel_manager, keyword, location, max_age_days, boards=list(boards),
         )
@@ -175,7 +231,7 @@ async def run_scrape_stage(
 
     # Extra sources (Romanian boards + RemoteOK): direct APIs, no proxies.
     # Additive for every subscription regardless of its boards list.
-    extra_jobs = await _scrape_extra_sources(scrape_combos)
+    extra_jobs = await _scrape_extra_sources(scrape_combos, attempted)
     all_jobs.extend(extra_jobs)
 
     # Deduplicate by ID
@@ -185,6 +241,9 @@ async def run_scrape_stage(
         if j.id not in seen_ids:
             seen_ids.add(j.id)
             unique.append(j)
+            per_source[j.source] = per_source.get(j.source, 0) + 1
+
+    health.record_cycle(attempted, per_source)
 
     log.info("Scrape stage complete: %d unique jobs", len(unique))
     return unique
@@ -195,8 +254,16 @@ async def run_scrape_stage(
 MAX_EXTRA_TERMS = 6
 
 
-async def _scrape_extra_sources(scrape_combos: dict[tuple, list[str]]) -> list[Job]:
-    """Run the plugin scrapers for every (keyword, location) combo."""
+async def _scrape_extra_sources(
+    scrape_combos: dict[tuple, list[str]],
+    attempted: set[str] | None = None,
+) -> list[Job]:
+    """Run the plugin scrapers for every (keyword, location) combo.
+
+    Adapter names are added to `attempted` so a source that returns nothing
+    is still counted as tried — otherwise a dead adapter just vanishes from
+    the yield accounting instead of raising an alert.
+    """
     from gosha.filters import expand_keyword
     from gosha.scrapers.base import SearchQuery
 
@@ -206,6 +273,9 @@ async def _scrape_extra_sources(scrape_combos: dict[tuple, list[str]]) -> list[J
     except Exception as exc:
         log.warning("Extra scrapers unavailable: %s", exc)
         return []
+
+    if attempted is not None:
+        attempted.update(s.name for s in scrapers)
 
     collected: list[Job] = []
     for (keyword, location, _boards, max_age_days), keywords in scrape_combos.items():
@@ -250,7 +320,12 @@ def job_matches_subscription(job: Job, sub: Subscription) -> bool:
         return False
     if matches_company_blacklist(job.company, sub.company_blacklist):
         return False
-    if not matches_salary_minimum(sub.salary_min, job.salary_min, job.salary_max):
+    # Compared on the normalised monthly-RON figures so a subscription's
+    # "salary_min" means the same thing regardless of which board the
+    # posting came from.
+    if not meets_minimum(
+        sub.salary_min, job.salary_monthly_min_ron, job.salary_monthly_max_ron,
+    ):
         return False
     if not matches_experience_level(job.title, sub.experience_levels):
         return False
@@ -417,13 +492,21 @@ async def run_scrape_cycle(
 
     Returns total number of new jobs delivered.
     """
+    from gosha.scrape_health import get_scrape_health
+
     log.info("=== Scrape cycle started ===")
     cycle_start = datetime.now(timezone.utc)
+    health = get_scrape_health()
 
     # Stage 1: Scrape
-    jobs = await run_scrape_stage(tunnel_manager)
+    jobs = await run_scrape_stage(tunnel_manager, health)
+
+    # Health alerting happens BEFORE the early return: a cycle that found
+    # nothing is exactly the cycle worth shouting about.
+    await _post_health_alert(bot, alert_channel_id, health.last_report)
+
     if not jobs:
-        log.info("No jobs found — cycle complete.")
+        log.warning("No jobs found — cycle complete.")
         return 0
 
     # Embed freshly scraped jobs so the web feed can rank them (best-effort)
@@ -461,19 +544,35 @@ async def run_scrape_cycle(
     # Only deliver the newly enqueued items (from this cycle)
     total_sent = await _deliver_new(bot, cycle_start)
 
-    # Post summary
-    if alert_channel_id and total_sent > 0:
-        try:
-            channel = bot.get_channel(alert_channel_id)
-            if channel is not None:
-                await channel.send(  # type: ignore[union-attr]
-                    f"Scrape complete — sent **{total_sent}** new job alerts via DM."
-                )
-        except Exception:
-            pass
-
     log.info("=== Scrape cycle finished — %d new jobs sent ===", total_sent)
     return total_sent
+
+
+async def _post_health_alert(
+    bot: JobBot, alert_channel_id: int, report: CycleReport | None,
+) -> None:
+    """Push scraper-health alerts to the ops channel.
+
+    Deliberately silent on success. The previous behaviour — a message only
+    when deliveries went out — meant a dead scraper looked exactly like a
+    quiet week.
+    """
+    if not alert_channel_id or report is None or not report.should_alert:
+        return
+    try:
+        channel = bot.get_channel(alert_channel_id)
+        if channel is None:
+            return
+        breakdown = ", ".join(
+            f"{name}={count}" for name, count in sorted(report.per_source.items())
+        )
+        await channel.send(  # type: ignore[union-attr]
+            "**Scraper health**\n"
+            + report.summary()
+            + (f"\n`{breakdown}`" if breakdown else "")
+        )
+    except Exception as exc:
+        log.error("Failed to post scraper-health alert: %s", exc)
 
 
 async def _deliver_new(bot: JobBot, since: datetime) -> int:
